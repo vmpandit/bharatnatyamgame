@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Natya Shastra: Marble Statue</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:ital,wght@0,400;1,600&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --gold: #FFD700; --dark-gold: #B8860B; --accent: #8B0000; }
+        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Playfair Display', serif; user-select: none; touch-action: none; }
+        
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; }
+        .interactive { pointer-events: auto; }
+
+        /* HEADER */
+        #top-bar { padding: 15px; text-align: center; background: linear-gradient(to bottom, rgba(255,255,255,0.9), transparent); display: flex; flex-direction: column; align-items: center; }
+        #chapter-title { font-family: 'Cinzel'; color: #444; font-size: 1.5rem; margin: 0; text-shadow: 0 1px 2px rgba(255,255,255,0.8); font-weight: bold; }
+        #turn-indicator { font-family: 'Cinzel'; color: #000; font-size: 1.1rem; margin-top: 5px; background: rgba(255,255,255,0.6); padding: 4px 15px; border-radius: 15px; border: 1px solid var(--dark-gold); opacity: 0; transition: 0.3s; }
+        #turn-indicator.active { opacity: 1; }
+        #turn-indicator.player-turn { background: rgba(50, 205, 50, 0.3); border-color: #006400; color: #004400; }
+
+        /* COUNTER */
+        #pushpanjali-counter {
+            position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 10px;
+            background: rgba(255, 250, 240, 0.9); padding: 8px 16px; border: 2px solid var(--gold); border-radius: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .lotus-icon { width: 24px; height: 24px; background: radial-gradient(circle, #ff69b4, #c71585); border-radius: 50%; }
+        #flower-count { font-family: 'Cinzel'; color: #444; font-size: 1.2rem; font-weight: bold; }
+
+        /* SEQUENCE */
+        #sequence-bar {
+            position: absolute; top: 100px; width: 100%; display: flex; justify-content: center; gap: 12px;
+            pointer-events: none; opacity: 0; transition: 0.3s; flex-wrap: wrap; padding: 0 20px;
+        }
+        .seq-node {
+            width: 40px; height: 40px; border: 2px solid #555; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 20px; color: #444;
+            background: rgba(255,255,255,0.7); transition: 0.2s; position: relative; font-weight: bold;
+        }
+        .seq-node.squat-mode { border-color: #0077be; box-shadow: 0 0 5px rgba(0, 119, 190, 0.5); }
+        .seq-node.active { border-color: var(--gold); color: #000; transform: scale(1.2); background: #FFF8DC; box-shadow: 0 0 15px var(--gold); }
+        .seq-node.success { border-color: #32CD32; color: #006400; background: #90EE90; transform: scale(1.0); }
+        .seq-node.fail { border-color: #ff0000; color: #8B0000; background: #FFB6C1; animation: shake 0.4s; }
+
+        /* CONTROLS */
+        #controls {
+            position: absolute; bottom: 20px; width: 100%; pointer-events: none;
+            display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 20px 30px; box-sizing: border-box; z-index: 100;
+        }
+        .dpad-area { position: relative; width: 160px; height: 160px; pointer-events: auto; }
+        
+        .d-btn {
+            position: absolute; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.7);
+            border: 2px solid #8B4513; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 22px; color: #8B4513;
+            cursor: pointer; transition: 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .d-btn:active, .d-btn.active { background: var(--accent); color: white; transform: scale(0.95); border-color: #fff; }
+        .d-up { top: 0; left: 55px; } .d-down { bottom: 0; left: 55px; }
+        .d-left { top: 55px; left: 0; } .d-right { top: 55px; right: 0; }
+        .d-spin { top: 55px; left: 55px; font-size: 12px; font-family: 'Cinzel'; border-color: #444; background: rgba(240,240,240,0.8); }
+
+        .mod-area { pointer-events: auto; padding-bottom: 20px; }
+        .mod-btn {
+            width: 100px; height: 55px; border: 2px solid #0077be; background: rgba(255, 255, 255, 0.8);
+            border-radius: 12px; color: #0077be; font-family: 'Cinzel'; font-size: 14px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .mod-btn.active { background: #0077be; color: #fff; box-shadow: 0 0 15px #0077be; }
+
+        /* SCREENS & DIALOGS */
+        .screen { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: 0.5s; z-index: 20; backdrop-filter: blur(5px); }
+        .screen.active { opacity: 1; pointer-events: auto; }
+        
+        .panel { 
+            background: #FFF8DC; border: 4px solid var(--accent); 
+            padding: 30px; border-radius: 15px; max-width: 600px; width: 90%; text-align: center; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3); position: relative; max-height: 90vh; overflow-y: auto;
+            color: #3e2723;
+        }
+
+        .guru-avatar { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--accent); margin: 0 auto 15px auto; background: #8D5524; overflow: hidden; position: relative; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+        
+        h1 { font-family: 'Cinzel'; font-size: 2.2rem; color: var(--accent); margin: 0 0 10px 0; }
+        h2 { font-family: 'Cinzel'; font-size: 1.4rem; color: #5d4037; margin: 10px 0; }
+        h3 { font-family: 'Cinzel'; color: #8d6e63; margin: 15px 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid #d7ccc8; padding-bottom: 5px; display: inline-block; }
+        p { color: #4e342e; font-size: 0.95rem; line-height: 1.6; margin-bottom: 15px; }
+        .history-text { font-style: italic; color: #555; font-size: 0.9rem; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .controls-list { text-align: left; font-size: 0.9rem; color: #3e2723; margin: 0 auto; width: 90%; }
+        .controls-list li { margin-bottom: 5px; }
+
+        input[type="text"] {
+            background: #fff; border: 1px solid var(--accent); color: #3e2723;
+            padding: 10px; font-family: 'Cinzel'; font-size: 1.1rem; text-align: center; width: 60%; margin-bottom: 20px;
+        }
+
+        .btn { 
+            background: var(--accent); border: 1px solid #5d4037; 
+            color: #fff; padding: 12px 35px; font-family: 'Cinzel'; font-size: 1.1rem; 
+            cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); border-radius: 5px; margin-top: 10px;
+        }
+        .btn:hover { transform: translateY(-2px); background: #a52a2a; }
+
+        .quiz-opt {
+            display: block; width: 100%; padding: 12px; margin: 8px 0; background: #fff;
+            border: 1px solid #8d6e63; color: #3e2723; cursor: pointer; font-family: 'Playfair Display'; font-size: 1rem;
+            transition: 0.2s; text-align: left;
+        }
+        .quiz-opt:hover { background: #fbe9e7; border-color: var(--accent); }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- UI -->
+<div id="ui-layer">
+    <div id="top-bar">
+        <h2 id="chapter-title"></h2>
+        <div id="turn-indicator">Guru Meenakshi is teaching...</div>
+    </div>
+    
+    <div id="pushpanjali-counter">
+        <div class="lotus-icon"></div>
+        <div id="flower-count">0</div>
+    </div>
+
+    <div id="sequence-bar"></div>
+
+    <div id="controls">
+        <div class="dpad-area">
+            <div class="d-btn d-up" data-key="ArrowUp">▲</div>
+            <div class="d-btn d-left" data-key="ArrowLeft">◀</div>
+            <div class="d-btn d-right" data-key="ArrowRight">▶</div>
+            <div class="d-btn d-down" data-key="ArrowDown">▼</div>
+            <div class="d-btn d-spin" data-key="KeyS">SPIN</div>
+        </div>
+        <div class="mod-area">
+            <div class="mod-btn" id="btn-squat" data-key="Space">MANDI (Sit)</div>
+        </div>
+    </div>
+
+    <!-- START SCREEN -->
+    <div id="screen-start" class="screen active interactive">
+        <div class="panel">
+            <h1>Natya Shastra</h1>
+            <div class="history-text">
+                Bharatanatyam is a divine art form from Tamil Nadu. We begin in Samapadam (standing) to listen, and move to Araimandi (half-sit) to dance. 
+            </div>
+            <h3>How to Play</h3>
+            <ul class="controls-list">
+                <li><strong>Watch:</strong> Memorize the Guru's sequence.</li>
+                <li><strong>Repeat:</strong> Perform it when it is "Your Turn".</li>
+                <li><strong>Mandi:</strong> Hold SPACE for deep sit (Diamond Leg shape).</li>
+                <li><strong>Spin:</strong> Press 'S' or rapid circle keys.</li>
+            </ul>
+            <h3>Enter Your Name</h3>
+            <input type="text" id="inp-player-name" placeholder="Shishya Name" value="Disciple">
+            <button class="btn" id="btn-enter-temple">Enter Courtyard</button>
+        </div>
+    </div>
+
+    <!-- TEACHING DIALOG -->
+    <div id="screen-teach" class="screen interactive">
+        <div class="panel">
+            <div class="guru-avatar"><canvas id="avatar-canvas-teach" width="80" height="80"></canvas></div>
+            <h2 id="teach-title">Title</h2>
+            <p id="teach-text">Lesson text goes here.</p>
+            <button class="btn" id="btn-start-practice">Begin Practice</button>
+        </div>
+    </div>
+
+    <!-- QUIZ SCREEN -->
+    <div id="screen-quiz" class="screen interactive">
+        <div class="panel">
+            <div class="guru-avatar"><canvas id="avatar-canvas-quiz" width="80" height="80"></canvas></div>
+            <h2>Guru's Question</h2>
+            <p id="quiz-question">Question text?</p>
+            <div id="quiz-options"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const CONTENT = [
+    { 
+        id: 'alarippu', title: "Alarippu", sub: "Invocation", seqLen: 3, req: 3, types: ['stand'],
+        teach: "Namaskaram. Watch carefully. You will step forward to watch, and step back to dance.",
+        quiz: { q: "Which posture do we hold while dancing basic steps?", opts: ["Samapadam (Standing)", "Araimandi (Half-Sit)", "Sayana (Sleeping)"], ans: 1 }
+    },
+    { 
+        id: 'jatiswaram', title: "Jatiswaram", sub: "Melody", seqLen: 4, req: 3, types: ['stand', 'squat'],
+        teach: "In Jatiswaram, we use Mandi. Press SPACE to sit deep. Look for the diamond shape.",
+        quiz: { q: "Jatiswaram emphasizes which aspect?", opts: ["Pure Dance (Nritta)", "Storytelling (Abhinaya)", "Singing"], ans: 0 }
+    },
+    { 
+        id: 'shabdam', title: "Shabdam", sub: "Expression", seqLen: 5, req: 4, types: ['stand', 'squat'],
+        teach: "Shabdam introduces lyrics. Focus on your timing.",
+        quiz: { q: "Where should the eyes go?", opts: ["To the audience", "To the hands", "To the floor"], ans: 1 }
+    },
+    { 
+        id: 'varnam', title: "Varnam", sub: "Masterpiece", seqLen: 6, req: 4, types: ['stand', 'squat', 'spin'],
+        teach: "Varnam is long and difficult. Press 'S' to spin.",
+        quiz: { q: "Rising out of Araimandi is considered...", opts: ["A style choice", "A mistake", "Relaxing"], ans: 1 }
+    },
+    { 
+        id: 'padam', title: "Padam", sub: "Devotion", seqLen: 7, req: 5, types: ['stand', 'squat', 'spin'],
+        teach: "Padams are slow. Show your devotion.",
+        quiz: { q: "Padams primarily focus on...", opts: ["Speed", "Emotion (Bhava)", "Jumps"], ans: 1 }
+    },
+    { 
+        id: 'thillana', title: "Thillana", sub: "Finale", seqLen: 8, req: 5, types: ['stand', 'squat', 'spin'],
+        teach: "Thillana! Fast and joyous. Give everything you have.",
+        quiz: { q: "Thillana is performed...", opts: ["First", "In the middle", "Last"], ans: 2 }
+    }
+];
+
+const STATE = { 
+    mode: 'IDLE',
+    levelIdx: 0, 
+    flowers: 0,
+    currentSequence: [],
+    playerInputIdx: 0,
+    isSquatting: false, 
+    playerName: "Disciple",
+    isInputLocked: false 
+};
+
+let dancers = [];
+let particles = [];
+let deepams = [];
+let arrowHistory = [];
+
+class Dancer {
+    constructor(x, z, scale, type) {
+        this.baseX = x; this.baseZ = z; this.scale = scale;
+        this.curX = x; this.curZ = z;
+        this.type = type;
+        this.yOffset = 0; 
+        this.spreadOffset = 0; 
+        this.rotation = 0;
+        
+        this.armL = {x:-45, y:-25}; this.armR = {x:45, y:-25}; 
+        this.head = {rot:0};
+        this.eyes = {x:0, y:0}; 
+        
+        this.anim = Math.random()*10; 
+        this.sariPhase = Math.random()*10;
+        
+        if(type === 'guru') { this.skinColor = '#8D5524'; this.sariColor = '#D92027'; }
+        else if(type === 'player') { this.skinColor = '#C68642'; this.sariColor = '#4B0082'; }
+        else { this.skinColor = '#A0522D'; this.sariColor = '#800000'; }
+    }
+
+    triggerFormation(targetMode) {
+        if (this.type === 'guru') return; 
+
+        let targetZ = this.baseZ;
+        let targetX = this.baseX;
+
+        // WATCHING Mode: Move DOWNSTAGE (Large positive Z) and SPREAD
+        if (targetMode === 'WATCH' || targetMode === 'TEACH' || targetMode === 'IDLE' || targetMode === 'QUIZ') {
+            targetZ = 450; 
+            if (this.type === 'player') {
+                targetX = 350; 
+            } else if (this.baseX < 0) {
+                targetX = -350; 
+            } else {
+                targetX = 600; 
+            }
+            gsap.to(this, {yOffset: -20, spreadOffset: -25, duration: 0.5}); // Samapadam
+        } else {
+            // REPEAT (Dance) Mode: Return to original formation
+            targetX = this.baseX;
+            targetZ = this.baseZ;
+             gsap.to(this, {yOffset: STATE.isSquatting && this.type==='player' ? 45 : 0, spreadOffset: STATE.isSquatting && this.type==='player' ? 25 : 0, duration: 0.5});
+        }
+        
+        // This is the key movement tween
+        gsap.to(this, {curZ: targetZ, curX: targetX, duration: 1.2, ease: "power2.inOut"});
+    }
+
+    spin() {
+        gsap.to(this, {rotation: Math.PI*2, duration: 0.6, ease: "back.out(1.2)", onComplete: () => { this.rotation = 0; }});
+    }
+
+    pose(move) {
+        if (move.key === 'Spin') { this.spin(); return; }
+        if(move.squat) {
+             gsap.to(this, {yOffset: 45, spreadOffset: 25, duration: 0.2});
+        } else if (STATE.mode === 'REPEAT') {
+             gsap.to(this, {yOffset: 0, spreadOffset: 0, duration: 0.2});
+        }
+
+        let l={x:-45,y:-25}, r={x:45,y:-25}, h=0, ex=0, ey=0;
+        const k = move.key;
+
+        if(k==='ArrowLeft') ex = -3;
+        if(k==='ArrowRight') ex = 3;
+        if(k==='ArrowUp') ey = -2;
+        if(k==='ArrowDown') ey = 2;
+
+        if (move.squat) {
+            if(k==='ArrowLeft') { l={x:-120,y:-20}; r={x:0,y:0}; h=-0.3; } 
+            else if(k==='ArrowRight'){ l={x:0,y:0}; r={x:120,y:-20}; h=0.3; }
+            else if(k==='ArrowUp') { l={x:-60,y:-140}; r={x:60,y:-140}; h=0; } 
+            else if(k==='ArrowDown') { l={x:-45,y:40}; r={x:45,y:40}; h=0; } 
+        } else {
+            if(k==='ArrowLeft') { l={x:-120,y:-80}; r={x:60,y:-20}; h=-0.2; }
+            else if(k==='ArrowRight'){ l={x:-60,y:-20}; r={x:120,y:-80}; h=0.2; }
+            else if(k==='ArrowUp') { l={x:-90,y:-110}; r={x:90,y:-110}; h=0; }
+            else if(k==='ArrowDown') { l={x:-100,y:40}; r={x:100,y:40}; h=0; }
+        }
+        
+        gsap.to(this.armL, {x:l.x, y:l.y, duration:0.4});
+        gsap.to(this.armR, {x:r.x, y:r.y, duration:0.4});
+        gsap.to(this.head, {rot:h, duration:0.4});
+        gsap.to(this.eyes, {x:ex, y:ey, duration:0.2});
+        
+        setTimeout(()=>{
+            gsap.to(this.armL, {x:-45, y:-25, duration:0.6});
+            gsap.to(this.armR, {x:45, y:-25, duration:0.6});
+            gsap.to(this.head, {rot:0, duration:0.6});
+            gsap.to(this.eyes, {x:0, y:0, duration:0.4});
+        }, 800);
+    }
+
+    draw(ctx, cx, cyBase) {
+        this.anim += 0.05; this.sariPhase += 0.1;
+        const breathe = Math.sin(this.anim)*2;
+        const depthScale = this.scale * (1 + (this.curZ * 0.002)); 
+        const yPos = cyBase + (this.curZ * 0.9) + this.yOffset; 
+        
+        ctx.save();
+        ctx.translate(cx + this.curX * depthScale, yPos + breathe); 
+        ctx.scale(depthScale, depthScale);
+        if (this.rotation > 0) ctx.scale(Math.cos(this.rotation), 1);
+
+        if (STATE.mode === 'WATCH') {
+            if (this.type === 'guru') ctx.globalAlpha = 1.0; else ctx.globalAlpha = 0.5; 
+        } else {
+            if (this.type === 'npc') ctx.globalAlpha = 0.8; else ctx.globalAlpha = 1.0;
+        }
+
+        const mainColor = this.sariColor;
+        const skinColor = this.skinColor;
+        const gold = "#FFD700";
+
+        const currentSpread = 25 + this.spreadOffset; 
+        const kneeY = 180 + (this.yOffset * 0.4); 
+        const ankleY = 280;
+        const innerGap = this.spreadOffset > 10 ? 10 : 0;
+
+        ctx.fillStyle = mainColor;
+
+        // 1. LEGS
+        ctx.beginPath(); ctx.moveTo(-35 - innerGap, 75); ctx.lineTo(-10 - innerGap, 75); ctx.lineTo(-15, ankleY); 
+        ctx.lineTo(-25 - currentSpread, kneeY); ctx.lineTo(-45 - innerGap, ankleY); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = gold; ctx.fillRect(-45 - innerGap, ankleY-10, 30, 10);
+
+        ctx.fillStyle = mainColor;
+        ctx.beginPath(); ctx.moveTo(35 + innerGap, 75); ctx.lineTo(10 + innerGap, 75); ctx.lineTo(15, ankleY); 
+        ctx.lineTo(25 + currentSpread, kneeY); ctx.lineTo(45 + innerGap, ankleY); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = gold; ctx.fillRect(15 + innerGap, ankleY-10, 30, 10);
+
+        // 2. CENTRAL FAN
+        const fanHeight = 160 + this.yOffset*0.3; 
+        const fanWidthBase = 40;
+        const fanWidthSpread = fanWidthBase + currentSpread*1.5; 
+        
+        const fanGrad = ctx.createLinearGradient(0, 75, 0, 75+fanHeight);
+        fanGrad.addColorStop(0, mainColor);
+        fanGrad.addColorStop(1, "#8B0000"); 
+        
+        ctx.fillStyle = fanGrad;
+        ctx.beginPath();
+        ctx.moveTo(-15, 75); 
+        ctx.lineTo(15, 75); 
+        ctx.quadraticCurveTo(fanWidthSpread, 75 + fanHeight/2, fanWidthSpread, 75 + fanHeight); 
+        ctx.lineTo(-fanWidthSpread, 75 + fanHeight); 
+        ctx.quadraticCurveTo(-fanWidthSpread, 75 + fanHeight/2, -15, 75); 
+        ctx.fill();
+
+        ctx.fillStyle = gold;
+        ctx.fillRect(-fanWidthSpread, 75 + fanHeight - 15, fanWidthSpread*2, 15);
+        
+        ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, 75); ctx.lineTo(0, 75+fanHeight); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-5, 75); ctx.lineTo(-15, 75+fanHeight); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(5, 75); ctx.lineTo(15, 75+fanHeight); ctx.stroke();
+
+        // 3. TORSO
+        ctx.fillStyle = mainColor; ctx.fillRect(-35, -50, 70, 125);
+        
+        ctx.fillStyle = "rgba(0,0,0,0.15)";
+        ctx.beginPath(); ctx.moveTo(-35, 70); ctx.lineTo(35, -50); ctx.lineTo(20, -50); ctx.lineTo(-35, 50); ctx.fill();
+        
+        ctx.fillStyle = gold; ctx.fillRect(-36, 68, 72, 12);
+        ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(0, 74, 4, 0, Math.PI*2); ctx.fill();
+
+        ctx.strokeStyle = gold; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, -50, 20, 0, Math.PI, false); ctx.stroke();
+
+        // Limbs
+        const limb = (x1,y1,x2,y2) => {
+            ctx.lineCap="round"; ctx.strokeStyle = skinColor; ctx.lineWidth=16;
+            ctx.beginPath(); ctx.moveTo(x1,y1); ctx.quadraticCurveTo((x1+x2)/2, (y1+y2)/2, x2, y2); ctx.stroke();
+            ctx.strokeStyle=gold; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-(x2-x1)*0.1, y2-(y2-y1)*0.1); ctx.stroke();
+        };
+        limb(-35, -45, this.armL.x, this.armL.y);
+        limb(35, -45, this.armR.x, this.armR.y);
+
+        // Head
+        ctx.rotate(this.head.rot);
+        ctx.fillStyle = skinColor; ctx.beginPath(); ctx.arc(0, -90, 32, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(0, -100, 34, Math.PI, 0); ctx.fill(); 
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-30, -95, 8, 0, Math.PI*2); ctx.fill();
+        
+        ctx.fillStyle = gold; 
+        ctx.beginPath(); ctx.arc(0, -85, 3, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(0, -85, 2, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = gold;
+        ctx.beginPath(); ctx.moveTo(-30, -80); ctx.lineTo(-35, -70); ctx.lineTo(-25, -70); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(30, -80); ctx.lineTo(25, -70); ctx.lineTo(35, -70); ctx.fill();
+
+        if (this.type !== 'npc') {
+            ctx.translate(this.eyes.x, this.eyes.y); 
+            ctx.fillStyle="#FFF"; ctx.beginPath(); ctx.ellipse(-12,-95,6,3.5,0,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(12,-95,6,3.5,0,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#000"; ctx.beginPath(); ctx.arc(-12,-95,2.5,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(12,-95,2.5,0,Math.PI*2); ctx.fill();
+            ctx.translate(-this.eyes.x, -this.eyes.y);
+        }
+        ctx.restore(); ctx.globalAlpha = 1.0;
+    }
+}
+
+const Game = {
+    init: () => {
+        const nameInput = document.getElementById('inp-player-name').value;
+        if(nameInput.trim() !== "") STATE.playerName = nameInput;
+        player = new Dancer(0, 50, 1.2, 'player'); 
+        const guru = new Dancer(0, -100, 1.0, 'guru');
+        const npc1 = new Dancer(-300, 50, 0.9, 'npc');
+        const npc2 = new Dancer(300, 50, 0.9, 'npc');
+        dancers = [guru, npc1, npc2, player];
+        deepams = [{x: window.innerWidth * 0.15, y: window.innerHeight * 0.8}, {x: window.innerWidth * 0.85, y: window.innerHeight * 0.8}];
+        Audio.init();
+        document.getElementById('screen-start').classList.remove('active');
+        Game.startTeaching(0);
+    },
+    updateFormation: (newMode) => {
+        // Trigger the movement only ONCE when mode changes
+        dancers.forEach(d => d.triggerFormation(newMode));
+    },
+    startTeaching: (idx) => {
+        STATE.levelIdx = idx;
+        const lvl = CONTENT[idx];
+        document.getElementById('chapter-title').innerText = `Dance ${idx+1}: ${lvl.title}`;
+        document.getElementById('turn-indicator').className = ''; 
+        document.getElementById('teach-title').innerText = lvl.title;
+        document.getElementById('teach-text').innerText = lvl.teach;
+        document.getElementById('screen-teach').classList.add('active');
+        drawAvatar('avatar-canvas-teach');
+        
+        STATE.mode = 'TEACH';
+        Game.updateFormation('TEACH'); // Trigger movement to front
+    },
+    startPractice: () => {
+        document.getElementById('screen-teach').classList.remove('active');
+        STATE.flowers = 0; Game.updateCounter(); Game.startRound();
+    },
+    startRound: () => {
+        STATE.isInputLocked = true; 
+        const lvl = CONTENT[STATE.levelIdx];
+        const arrows = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+        const seq = [];
+        for(let i=0; i < lvl.seqLen; i++) {
+            let moveType = 'stand';
+            if (lvl.types.includes('squat') && Math.random() > 0.6) moveType = 'squat';
+            if (lvl.types.includes('spin') && Math.random() > 0.85) moveType = 'spin';
+            if (moveType === 'spin') seq.push({ key: 'Spin', squat: false });
+            else seq.push({ key: arrows[Math.floor(Math.random() * arrows.length)], squat: (moveType === 'squat')});
+        }
+        STATE.currentSequence = seq; STATE.playerInputIdx = 0; 
+        const bar = document.getElementById('sequence-bar');
+        bar.innerHTML = ''; bar.style.opacity = 1;
+        seq.forEach(m => {
+            const n = document.createElement('div'); n.className = 'seq-node';
+            if(m.squat) n.classList.add('squat-mode'); n.innerHTML = '?'; bar.appendChild(n);
+        });
+        
+        STATE.mode = 'WATCH';
+        Game.setTurn("Guru Meenakshi"); 
+        Game.updateFormation('WATCH'); // Ensure they are front
+        Game.playSequence(0);
+    },
+    setTurn: (name) => {
+        const el = document.getElementById('turn-indicator');
+        el.innerText = `${name} is active...`; 
+        el.className = 'active'; 
+        if(name !== "Guru Meenakshi") el.classList.add('player-turn');
+    },
+    playSequence: (idx) => {
+        if (idx >= STATE.currentSequence.length) {
+            setTimeout(() => { 
+                STATE.mode = 'REPEAT'; 
+                STATE.isInputLocked = false; 
+                STATE.playerInputIdx = 0; 
+                Game.setTurn(STATE.playerName + " (Your Turn)"); 
+                Game.updateFormation('REPEAT'); // MOVE BACK TO FORMATION
+                document.querySelectorAll('.seq-node')[0].classList.add('active');
+                Audio.playNote('Spin'); 
+            }, 1000);
+            return;
+        }
+        const move = STATE.currentSequence[idx];
+        dancers[0].pose(move); Audio.playNote(move.key);
+        const nodes = document.querySelectorAll('.seq-node');
+        if(nodes[idx]) {
+            nodes[idx].innerHTML = Game.getIcon(move); nodes[idx].classList.add('active');
+            setTimeout(() => { nodes[idx].classList.remove('active'); nodes[idx].innerHTML = '?'; }, 800);
+        }
+        setTimeout(() => Game.playSequence(idx + 1), 1200);
+    },
+    handleInput: (key) => {
+        if (STATE.mode !== 'REPEAT' || STATE.isInputLocked) return; 
+        if (key !== 'Spin' && key !== 'Space') {
+            arrowHistory.push(key); if(arrowHistory.length > 4) arrowHistory.shift();
+            if(new Set(arrowHistory).size === 4) { arrowHistory = []; Game.commitMove({ key: 'Spin', squat: false }); return; }
+        }
+        if (key === 'Spin') Game.commitMove({ key: 'Spin', squat: false });
+        else Game.commitMove({ key: key, squat: STATE.isSquatting });
+    },
+    commitMove: (playerMove) => {
+        if (STATE.playerInputIdx >= STATE.currentSequence.length) return;
+        const expected = STATE.currentSequence[STATE.playerInputIdx];
+        player.pose(playerMove); 
+        setTimeout(() => { dancers[1].pose(playerMove); dancers[2].pose(playerMove); }, 200); 
+        Audio.playNote(playerMove.key);
+        const nodes = document.querySelectorAll('.seq-node'); 
+        const currentNode = nodes[STATE.playerInputIdx];
+        if (playerMove.key === expected.key && playerMove.squat === expected.squat) {
+            currentNode.innerHTML = Game.getIcon(playerMove); currentNode.classList.remove('active'); currentNode.classList.add('success');
+            STATE.playerInputIdx++; 
+            if(STATE.playerInputIdx < nodes.length) { nodes[STATE.playerInputIdx].classList.add('active'); } 
+            else { STATE.isInputLocked = true; Game.success(); }
+        } else {
+            STATE.isInputLocked = true; currentNode.classList.add('fail'); Game.fail();
+        }
+    },
+    success: () => {
+        STATE.flowers++; Game.updateCounter(); particles.push({x: window.innerWidth/2, y: window.innerHeight - 100, life: 1, type: 'lotus'}); Audio.playChord('major');
+        setTimeout(() => {
+            const lvl = CONTENT[STATE.levelIdx];
+            if (STATE.flowers >= lvl.req) Game.startQuiz(); else Game.startRound();
+        }, 2000);
+    },
+    fail: () => {
+        Audio.playChord('dim'); if (STATE.flowers > 0) { STATE.flowers = 0; Game.updateCounter(); } setTimeout(Game.startRound, 2000);
+    },
+    startQuiz: () => {
+        STATE.mode = 'QUIZ';
+        Game.updateFormation('QUIZ'); // Bring them back to front for quiz
+        const lvl = CONTENT[STATE.levelIdx]; const q = lvl.quiz;
+        document.getElementById('quiz-question').innerText = q.q; const optsDiv = document.getElementById('quiz-options'); optsDiv.innerHTML = '';
+        q.opts.forEach((opt, i) => {
+            const btn = document.createElement('button'); btn.className = 'quiz-opt'; btn.innerText = opt;
+            btn.onclick = () => {
+                if (i === q.ans) {
+                    document.getElementById('screen-quiz').classList.remove('active');
+                    if (STATE.levelIdx + 1 < CONTENT.length) Game.startTeaching(STATE.levelIdx + 1); else alert("Arangetram Complete!");
+                } else { btn.style.borderColor = 'red'; btn.style.color = 'red'; }
+            }; optsDiv.appendChild(btn);
+        });
+        document.getElementById('screen-quiz').classList.add('active'); drawAvatar('avatar-canvas-quiz');
+    },
+    updateCounter: () => { const lvl = CONTENT[STATE.levelIdx]; document.getElementById('flower-count').innerText = `${STATE.flowers} / ${lvl.req}`; },
+    getIcon: (move) => { if(move.key === 'Spin') return '↺'; if(move.key==='ArrowUp') return '▲'; if(move.key==='ArrowDown') return '▼'; if(move.key==='ArrowLeft') return '◀'; return '▶'; },
+    toggleSquat: (forceState) => {
+        if (forceState !== undefined) STATE.isSquatting = forceState; else STATE.isSquatting = !STATE.isSquatting;
+        player.pose({key: '', squat: STATE.isSquatting}); // Trigger animation
+        const btn = document.getElementById('btn-squat'); if(STATE.isSquatting) btn.classList.add('active'); else btn.classList.remove('active');
+    }
+};
+
+const Audio = {
+    synth: null,
+    init: async () => { await Tone.start(); Audio.synth = new Tone.PolySynth(Tone.Synth).toDestination(); Audio.synth.volume.value = -6; },
+    playNote: (key) => { if(!Audio.synth) return; let n = "C4"; if(key==='ArrowLeft') n="D4"; if(key==='ArrowRight') n="E4"; if(key==='ArrowUp') n="G4"; if(key==='ArrowDown') n="A3"; if(key==='Spin') n="C5"; Audio.synth.triggerAttackRelease(n, "8n"); },
+    playChord: (type) => { if(!Audio.synth) return; if(type==='major') Audio.synth.triggerAttackRelease(["C4","E4","G4"], "4n"); else Audio.synth.triggerAttackRelease(["C3","Eb3","Gb3"], "4n"); }
+};
+
+function drawAvatar(canvasId) {
+    const c = document.getElementById(canvasId); const cx = c.getContext('2d'); cx.clearRect(0,0,80,80);
+    const g = cx.createRadialGradient(40,40,20,40,40,40); g.addColorStop(0,"#e0c0a0"); g.addColorStop(1,"#8D5524");
+    cx.fillStyle = g; cx.fillRect(0,0,80,80); cx.fillStyle = "#111"; cx.beginPath(); cx.arc(40,35,30,Math.PI,0); cx.fill(); cx.fillStyle = "#A00"; cx.beginPath(); cx.arc(40,30,4,0,Math.PI*2); cx.fill(); cx.fillStyle = "#FFF"; cx.beginPath(); cx.ellipse(30,45,5,3,0,0,Math.PI*2); cx.ellipse(50,45,5,3,0,0,Math.PI*2); cx.fill(); cx.fillStyle = "#000"; cx.beginPath(); cx.arc(30,45,2,0,Math.PI*2); cx.arc(50,45,2,0,Math.PI*2); cx.fill(); cx.strokeStyle = "#5a2d1d"; cx.beginPath(); cx.arc(40,55,5,0,Math.PI); cx.stroke();
+}
+
+const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; if(deepams.length) { deepams[0].x = canvas.width * 0.15; deepams[0].y = canvas.height * 0.75; deepams[1].x = canvas.width * 0.85; deepams[1].y = canvas.height * 0.75; } }
+window.addEventListener('resize', resize); resize();
+
+function draw() {
+    const w = canvas.width, h = canvas.height;
+    // Day Sky
+    const bg = ctx.createLinearGradient(0,0,0,h); bg.addColorStop(0, "#87CEEB"); bg.addColorStop(1, "#E0F7FA"); ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
+    
+    // Sun
+    const sunGrad = ctx.createRadialGradient(w*0.8, h*0.1, 10, w*0.8, h*0.1, 100); sunGrad.addColorStop(0, "rgba(255,255,224, 0.9)"); sunGrad.addColorStop(1, "rgba(255,255,224, 0)");
+    ctx.fillStyle = sunGrad; ctx.fillRect(0,0,w,h);
+
+    // DRAW NATARAJA MURTI (MARBLE STATUE)
+    ctx.save();
+    ctx.translate(w/2, h*0.4); 
+    const scaleFactor = Math.min(w, h) * 0.0014; 
+    ctx.scale(scaleFactor, scaleFactor);
+
+    // MARBLE Palette
+    const MARBLE_BASE = "#F5F5F5"; // White Smoke (Main Stone)
+    const MARBLE_SHADE = "#D3D3D3"; // Light Grey (Shadows)
+    const MARBLE_DARK = "#778899"; // Light Slate Grey (Deep contrast for hair/details)
+    const MARBLE_ACCENT = "#C0C0C0"; // Silver (Accents)
+    
+    ctx.strokeStyle = MARBLE_SHADE;
+    ctx.fillStyle = MARBLE_BASE;
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+    // 1. Ring of Fire
+    ctx.beginPath(); ctx.arc(0, 0, 160, 0, Math.PI*2); 
+    ctx.lineWidth = 15; ctx.strokeStyle = MARBLE_BASE; ctx.stroke();
+    // Shadow outline
+    ctx.lineWidth = 1; ctx.strokeStyle = MARBLE_SHADE; ctx.stroke();
+    
+    // Flames (Sculpted Stone)
+    for(let i=0; i<30; i++) {
+        const ang = (i/30) * Math.PI*2;
+        const fx = Math.cos(ang)*160; const fy = Math.sin(ang)*160;
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx*1.15, fy*1.15); 
+        ctx.lineWidth=5; ctx.strokeStyle=MARBLE_SHADE; ctx.stroke();
+    }
+
+    // 2. Lord Shiva (White Marble)
+    // Legs
+    ctx.strokeStyle = MARBLE_BASE; ctx.lineWidth = 20;
+    // Shadow layer first
+    ctx.save(); ctx.translate(2,2); ctx.strokeStyle = MARBLE_SHADE;
+    ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 80); ctx.lineTo(20, 130); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10, 20); ctx.lineTo(-40, 40); ctx.lineTo(60, -10); ctx.stroke();
+    ctx.restore();
+    
+    // Main White Legs
+    ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 80); ctx.lineTo(20, 130); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10, 20); ctx.lineTo(-40, 40); ctx.lineTo(60, -10); ctx.stroke();
+
+    // Body Block
+    ctx.fillStyle = MARBLE_BASE;
+    ctx.beginPath(); ctx.moveTo(-25, -60); ctx.lineTo(25, -60); ctx.lineTo(15, 20); ctx.lineTo(-15, 20); ctx.fill();
+
+    // Arms
+    ctx.lineWidth = 14; ctx.strokeStyle = MARBLE_BASE;
+    ctx.beginPath(); ctx.moveTo(20, -50); ctx.lineTo(70, -80); ctx.lineTo(90, -90); ctx.stroke();
+    ctx.fillStyle = MARBLE_ACCENT; ctx.beginPath(); ctx.arc(95, -95, 8, 0, Math.PI*2); ctx.fill(); // Drum
+    
+    ctx.beginPath(); ctx.moveTo(-20, -50); ctx.lineTo(-70, -80); ctx.lineTo(-90, -90); ctx.stroke();
+    ctx.fillStyle = MARBLE_ACCENT; ctx.beginPath(); ctx.moveTo(-90, -90); ctx.lineTo(-95, -110); ctx.lineTo(-85, -110); ctx.fill(); // Fire
+
+    ctx.beginPath(); ctx.moveTo(20, -50); ctx.lineTo(50, -30); ctx.lineTo(50, -60); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-20, -50); ctx.lineTo(-30, -30); ctx.lineTo(50, 20); ctx.stroke();
+
+    // Head
+    ctx.fillStyle = MARBLE_BASE; ctx.beginPath(); ctx.arc(0, -70, 18, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = MARBLE_DARK; ctx.beginPath(); ctx.arc(0, -80, 10, Math.PI, 0); ctx.fill(); // Hair bun (Dark Grey Stone)
+
+    // Flying Jata (Hair)
+    ctx.strokeStyle = MARBLE_DARK; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-18, -70); ctx.lineTo(-150, -60); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(18, -70); ctx.lineTo(150, -60); ctx.stroke();
+
+    // 3. Dwarf Apasmara (Darker Stone Base)
+    ctx.fillStyle = MARBLE_DARK; 
+    ctx.beginPath(); ctx.ellipse(20, 140, 30, 12, 0, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+
+    // Floor
+    ctx.fillStyle = "rgba(240, 230, 210, 0.9)"; ctx.fillRect(w*0.1, 0, 80, h); ctx.fillRect(w*0.85, 0, 80, h);
+    ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(w, h); ctx.lineTo(w*0.9, h*0.6); ctx.lineTo(w*0.1, h*0.6); ctx.fillStyle = "rgba(160, 82, 45, 0.6)"; ctx.fill();
+
+    // Deepams
+    deepams.forEach(d => {
+        ctx.fillStyle = "#B8860B"; ctx.fillRect(d.x - 5, d.y, 10, 60);
+        ctx.beginPath(); ctx.ellipse(d.x, d.y+60, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(d.x, d.y, 15, 0, Math.PI, false); ctx.fill();
+        const flicker = Math.random() * 3; ctx.fillStyle = `rgba(255, 140, 0, 0.6)`; ctx.beginPath(); ctx.ellipse(d.x, d.y - 15, 6 + flicker, 15 + flicker, 0, 0, Math.PI*2); ctx.fill();
+    });
+
+    const sorted = [...dancers].sort((a,b) => a.curZ - b.curZ); sorted.forEach(d => d.draw(ctx, w/2, h*0.6));
+    particles.forEach((p, i) => {
+        p.life -= 0.01; p.y -= 1; ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = p.life;
+        ctx.fillStyle = "#ff69b4"; for(let k=0; k<6; k++) { ctx.rotate(Math.PI/3); ctx.beginPath(); ctx.ellipse(0, 15, 8, 15, 0, 0, Math.PI*2); ctx.fill(); }
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill(); ctx.restore(); if(p.life <= 0) particles.splice(i, 1);
+    });
+    requestAnimationFrame(draw);
+}
+
+document.getElementById('btn-enter-temple').onclick = Game.init; document.getElementById('btn-start-practice').onclick = Game.startPractice;
+['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k => { document.querySelector(`[data-key="${k}"]`).addEventListener('mousedown', (e) => { e.preventDefault(); Game.handleInput(k); }); });
+document.querySelector('[data-key="KeyS"]').addEventListener('mousedown', (e) => { e.preventDefault(); Game.handleInput('Spin'); });
+const sqBtn = document.getElementById('btn-squat'); sqBtn.addEventListener('mousedown', (e) => { e.preventDefault(); Game.toggleSquat(); }); sqBtn.addEventListener('touchstart', (e) => { e.preventDefault(); Game.toggleSquat(); });
+document.addEventListener('keydown', e => { if(e.repeat) return; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) Game.handleInput(e.key); if(e.code === 'Space') Game.toggleSquat(true); if(e.code === 'KeyS') Game.handleInput('Spin'); });
+document.addEventListener('keyup', e => { if(e.code === 'Space') Game.toggleSquat(false); });
+draw();
+</script>
+</body>
+</html>
