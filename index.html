@@ -3,802 +3,779 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Natya Shastra: The Arangetram Journey (Pro Edition)</title>
+    <title>Natya Shastra: Fixed & Polished</title>
     
-    <!-- External Libraries (Free/Open Source) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:ital,wght@0,400;1,600&display=swap" rel="stylesheet">
 
     <style>
-        :root {
-            --gold: #D4AF37;
-            --gold-shine: #F9E076;
-            --deep-red: #5D001E;
-            --overlay-bg: rgba(10, 5, 5, 0.92);
-        }
+        :root { --gold: #FFD700; --dark-gold: #B8860B; --accent: #8B0000; --mandi-blue: #0077be; }
+        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Playfair Display', serif; user-select: none; touch-action: none; }
+        
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; justify-content: space-between; }
+        .interactive { pointer-events: auto; }
 
-        body {
-            margin: 0;
-            background: #000;
-            overflow: hidden;
-            font-family: 'Playfair Display', serif;
-            color: #fff;
-            -webkit-font-smoothing: antialiased;
-        }
+        /* HEADER */
+        #top-bar { padding: 15px; text-align: center; background: linear-gradient(to bottom, rgba(255,255,255,0.9), transparent); display: flex; flex-direction: column; align-items: center; }
+        #chapter-title { font-family: 'Cinzel'; color: #444; font-size: 1.5rem; margin: 0; text-shadow: 0 1px 2px rgba(255,255,255,0.8); font-weight: bold; }
+        #turn-indicator { font-family: 'Cinzel'; color: #000; font-size: 1.1rem; margin-top: 5px; background: rgba(255,255,255,0.6); padding: 4px 15px; border-radius: 15px; border: 1px solid var(--dark-gold); opacity: 0; transition: 0.3s; }
+        #turn-indicator.active { opacity: 1; }
+        #turn-indicator.player-turn { background: rgba(50, 205, 50, 0.3); border-color: #006400; color: #004400; }
+        #turn-indicator.error { background: #ffcccc; border-color: red; color: darkred; opacity: 1; }
 
-        /* Loading Overlay */
-        #loader {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: #000;
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            transition: opacity 1s;
+        /* COUNTER */
+        #pushpanjali-counter {
+            position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 10px;
+            background: rgba(255, 250, 240, 0.9); padding: 8px 16px; border: 2px solid var(--gold); border-radius: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
-        .spinner {
-            width: 50px; height: 50px;
-            border: 3px solid var(--gold);
-            border-top: 3px solid transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .lotus-icon { width: 24px; height: 24px; background: radial-gradient(circle, #ff69b4, #c71585); border-radius: 50%; }
+        #flower-count { font-family: 'Cinzel'; color: #444; font-size: 1.2rem; font-weight: bold; }
 
-        /* Canvas & Stage */
-        #game-container {
-            position: relative;
-            width: 100vw; height: 100vh;
-            background: #000;
+        /* SEQUENCE */
+        #sequence-bar {
+            position: absolute; top: 100px; width: 100%; display: flex; justify-content: center; gap: 12px;
+            pointer-events: none; opacity: 0; transition: 0.3s; flex-wrap: wrap; padding: 0 20px;
         }
-        canvas { display: block; }
-
-        /* UI Elements */
-        .screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: var(--overlay-bg);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.5s;
-            z-index: 10;
+        .seq-node {
+            width: 50px; height: 50px; border: 3px solid #555; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 24px; color: #444;
+            background: rgba(255,255,255,0.9); transition: 0.2s; position: relative; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
-        .screen.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        h1 {
-            font-family: 'Cinzel', serif;
-            font-size: 4rem;
-            background: linear-gradient(to bottom, var(--gold-shine), var(--gold));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 0 0 20px 0;
-            text-shadow: 0 4px 20px rgba(212, 175, 55, 0.3);
-            text-align: center;
-        }
-
-        .panel {
-            background: rgba(30, 10, 10, 0.6);
-            border: 1px solid var(--gold);
-            padding: 40px;
-            border-radius: 4px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            max-width: 600px;
-            width: 90%;
-            text-align: center;
-            border-top: 4px solid var(--gold);
-        }
-
-        .btn {
-            background: linear-gradient(135deg, var(--deep-red) 0%, #300000 100%);
-            border: 1px solid var(--gold);
-            color: var(--gold);
-            padding: 15px 40px;
-            font-family: 'Cinzel', serif;
-            font-size: 1.1rem;
-            cursor: pointer;
-            margin-top: 20px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-        .btn:hover {
-            box-shadow: 0 0 25px rgba(212, 175, 55, 0.4);
-            transform: translateY(-2px);
-            background: linear-gradient(135deg, #700025 0%, #400000 100%);
-        }
-
-        /* HUD */
-        #hud {
-            position: absolute;
-            top: 20px; left: 20px; right: 20px;
-            display: flex;
-            justify-content: space-between;
-            pointer-events: none;
-            z-index: 5;
-        }
-        .stat-box {
-            font-family: 'Cinzel', serif;
-            color: var(--gold);
-            font-size: 1.5rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-        }
-        .combo-text {
-            position: absolute;
-            left: 50%; top: 20%;
-            transform: translateX(-50%);
-            font-size: 3rem;
-            color: var(--gold-shine);
-            opacity: 0;
-            font-weight: bold;
-            text-shadow: 0 0 20px var(--gold);
-        }
-
-        /* Guru Dialog */
-        #guru-overlay {
-            position: absolute;
-            bottom: 0; left: 0; width: 100%;
-            height: 30vh;
-            background: linear-gradient(to top, rgba(0,0,0,1), rgba(0,0,0,0));
-            display: flex;
-            align-items: flex-end;
-            padding-bottom: 30px;
-            z-index: 20;
-            transform: translateY(120%); /* Hidden by default */
-        }
-        .guru-container {
-            width: 100%; max-width: 900px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-        }
-        .guru-portrait {
-            width: 150px; height: 150px;
-            border-radius: 50%;
-            border: 3px solid var(--gold);
-            background: #221;
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-            margin-right: 30px;
-            position: relative;
-        }
-        .guru-text-box {
-            flex: 1;
-            background: rgba(20, 10, 10, 0.95);
-            border: 1px solid var(--gold);
-            padding: 25px;
-            border-radius: 2px 20px 2px 20px;
-            position: relative;
-        }
-        .guru-name {
-            color: var(--gold);
-            font-family: 'Cinzel', serif;
-            font-size: 0.9rem;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-        }
-        .guru-message {
-            font-size: 1.1rem;
-            line-height: 1.6;
+        /* New Clearer Mandi Indicator */
+        .seq-node.squat-mode { 
+            border-color: #004488; 
+            background: var(--mandi-blue); 
+            color: white;
+            box-shadow: 0 0 10px var(--mandi-blue); 
         }
         
-        /* Customization Grid */
-        .swatch-grid {
-            display: flex; justify-content: center; gap: 15px; margin: 20px 0;
+        .seq-node.active { border-color: var(--gold); transform: scale(1.3); box-shadow: 0 0 20px var(--gold); z-index: 5; }
+        .seq-node.success { border-color: #32CD32; color: #fff; background: #32CD32; transform: scale(1.0); }
+        .seq-node.fail { border-color: #ff0000; color: #fff; background: #ff0000; animation: shake 0.4s; }
+
+        @keyframes shake { 0%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} 100%{transform:translateX(0)} }
+
+        /* CONTROLS */
+        #controls {
+            position: absolute; bottom: 20px; width: 100%; pointer-events: none;
+            display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 20px 30px; box-sizing: border-box; z-index: 100;
         }
-        .swatch {
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid rgba(255,255,255,0.2);
-            transition: transform 0.2s;
+        .dpad-area { position: relative; width: 160px; height: 160px; pointer-events: auto; }
+        
+        .d-btn {
+            position: absolute; width: 50px; height: 50px; background: rgba(255, 255, 255, 0.7);
+            border: 2px solid #8B4513; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; font-size: 22px; color: #8B4513;
+            cursor: pointer; transition: 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
-        .swatch.selected {
-            border: 3px solid var(--gold);
-            transform: scale(1.2);
-            box-shadow: 0 0 15px var(--gold);
+        .d-btn:active, .d-btn.active { background: var(--accent); color: white; transform: scale(0.95); border-color: #fff; }
+        .d-up { top: 0; left: 55px; } .d-down { bottom: 0; left: 55px; }
+        .d-left { top: 55px; left: 0; } .d-right { top: 55px; right: 0; }
+        .d-spin { top: 55px; left: 55px; font-size: 12px; font-family: 'Cinzel'; border-color: #444; background: rgba(240,240,240,0.8); }
+
+        .mod-area { pointer-events: auto; padding-bottom: 20px; }
+        .mod-btn {
+            width: 120px; height: 60px; border: 3px solid var(--mandi-blue); background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px; color: var(--mandi-blue); font-family: 'Cinzel'; font-size: 16px; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
+        .mod-btn.active { background: var(--mandi-blue); color: #fff; box-shadow: 0 0 20px var(--mandi-blue); transform: scale(1.05); }
+
+        /* SCREENS & DIALOGS */
+        .screen { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: 0.5s; z-index: 20; backdrop-filter: blur(5px); }
+        .screen.active { opacity: 1; pointer-events: auto; }
+        
+        .panel { 
+            background: #FFF8DC; border: 4px solid var(--accent); 
+            padding: 30px; border-radius: 15px; max-width: 600px; width: 90%; text-align: center; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3); position: relative; max-height: 90vh; overflow-y: auto;
+            color: #3e2723;
+        }
+
+        .guru-avatar { width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--accent); margin: 0 auto 15px auto; background: #8D5524; overflow: hidden; position: relative; box-shadow: 0 0 10px rgba(0,0,0,0.3); }
+        
+        h1 { font-family: 'Cinzel'; font-size: 2.2rem; color: var(--accent); margin: 0 0 10px 0; }
+        h2 { font-family: 'Cinzel'; font-size: 1.4rem; color: #5d4037; margin: 10px 0; }
+        h3 { font-family: 'Cinzel'; color: #8d6e63; margin: 15px 0 10px 0; font-size: 1.1rem; border-bottom: 1px solid #d7ccc8; padding-bottom: 5px; display: inline-block; }
+        p { color: #4e342e; font-size: 0.95rem; line-height: 1.6; margin-bottom: 15px; }
+        .history-text { font-style: italic; color: #555; font-size: 0.9rem; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .controls-list { text-align: left; font-size: 0.9rem; color: #3e2723; margin: 0 auto; width: 90%; }
+        .controls-list li { margin-bottom: 5px; }
+
+        input[type="text"] {
+            background: #fff; border: 1px solid var(--accent); color: #3e2723;
+            padding: 10px; font-family: 'Cinzel'; font-size: 1.1rem; text-align: center; width: 60%; margin-bottom: 20px;
+        }
+
+        .btn { 
+            background: var(--accent); border: 1px solid #5d4037; 
+            color: #fff; padding: 12px 35px; font-family: 'Cinzel'; font-size: 1.1rem; 
+            cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); border-radius: 5px; margin-top: 10px;
+        }
+        .btn:hover { transform: translateY(-2px); background: #a52a2a; }
+
+        .quiz-opt {
+            display: block; width: 100%; padding: 12px; margin: 8px 0; background: #fff;
+            border: 1px solid #8d6e63; color: #3e2723; cursor: pointer; font-family: 'Playfair Display'; font-size: 1rem;
+            transition: 0.2s; text-align: left;
+        }
+        .quiz-opt:hover { background: #fbe9e7; border-color: var(--accent); }
     </style>
 </head>
 <body>
 
-<div id="loader">
-    <div class="spinner"></div>
-    <p style="margin-top:20px; color:var(--gold); font-family:'Cinzel'">Initializing Natya Shastra Engine...</p>
-</div>
+<canvas id="gameCanvas"></canvas>
 
-<div id="game-container">
-    <canvas id="gameCanvas"></canvas>
-
-    <!-- HUD -->
-    <div id="hud">
-        <div class="stat-box" id="score-el">Score: 0</div>
-        <div class="stat-box" id="level-el">Introduction</div>
+<!-- UI -->
+<div id="ui-layer">
+    <div id="top-bar">
+        <h2 id="chapter-title"></h2>
+        <div id="turn-indicator">Guru Meenakshi is teaching...</div>
     </div>
-    <div id="combo-popup" class="combo-text"></div>
+    
+    <div id="pushpanjali-counter">
+        <div class="lotus-icon"></div>
+        <div id="flower-count">0</div>
+    </div>
 
-    <!-- MAIN MENU -->
-    <div id="screen-menu" class="screen active">
+    <div id="sequence-bar"></div>
+
+    <div id="controls">
+        <div class="dpad-area">
+            <div class="d-btn d-up" data-key="ArrowUp">▲</div>
+            <div class="d-btn d-left" data-key="ArrowLeft">◀</div>
+            <div class="d-btn d-right" data-key="ArrowRight">▶</div>
+            <div class="d-btn d-down" data-key="ArrowDown">▼</div>
+            <div class="d-btn d-spin" data-key="KeyS">SPIN</div>
+        </div>
+        <div class="mod-area">
+            <div class="mod-btn" id="btn-squat" data-key="Space">MANDI (Sit)</div>
+        </div>
+    </div>
+
+    <!-- START SCREEN -->
+    <div id="screen-start" class="screen active interactive">
         <div class="panel">
             <h1>Natya Shastra</h1>
-            <p>Master the ancient art of Bharatnatyam. Learn the theory, feel the rhythm, and perform your Arangetram.</p>
-            
-            <div style="margin-top:30px;">
-                <p style="color:var(--gold); font-size:0.9rem; text-transform:uppercase;">Select Sari Color</p>
-                <div class="swatch-grid" id="sari-swatches">
-                    <!-- Injected by JS -->
-                </div>
+            <div class="history-text">
+                Bharatanatyam is a divine art form from Tamil Nadu. We begin in Samapadam (standing) to listen, and move to Araimandi (half-sit) to dance. 
             </div>
-
-            <button class="btn" id="start-btn">Enter the Gurukul</button>
-            <p style="font-size:0.8rem; opacity:0.6; margin-top:20px;">Use Arrow Keys to Dance</p>
+            <h3>How to Play</h3>
+            <ul class="controls-list">
+                <li><strong>Watch:</strong> Memorize the Guru's sequence.</li>
+                <li><strong>Blue Bubble:</strong> Means <strong>SIT</strong> (Mandi) while pressing the arrow.</li>
+                <li><strong>White Bubble:</strong> Means <strong>STAND</strong> while pressing the arrow.</li>
+                <li><strong>Mandi Control:</strong> Toggle the "Mandi" button or Hold Spacebar.</li>
+            </ul>
+            <h3>Enter Your Name</h3>
+            <input type="text" id="inp-player-name" placeholder="Shishya Name" value="Disciple">
+            <button class="btn" id="btn-enter-temple">Enter Courtyard</button>
         </div>
     </div>
 
-    <!-- GURU INTERACTION -->
-    <div id="guru-overlay">
-        <div class="guru-container">
-            <div class="guru-portrait">
-                <!-- Procedural Guru Canvas will be drawn here -->
-                <canvas id="guruCanvas" width="150" height="150"></canvas>
-            </div>
-            <div class="guru-text-box">
-                <div class="guru-name">Guru Meenakshi</div>
-                <div class="guru-message" id="guru-text">Welcome, shishya.</div>
-                <div id="quiz-container" style="margin-top:15px; display:none;">
-                    <!-- Quiz buttons -->
-                </div>
-                <div style="text-align:right; margin-top:10px;">
-                    <button class="btn" id="dialog-next" style="padding: 5px 20px; font-size: 0.8rem;">Continue</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- RESULTS -->
-    <div id="screen-result" class="screen">
+    <!-- TEACHING DIALOG -->
+    <div id="screen-teach" class="screen interactive">
         <div class="panel">
-            <h1 id="result-title">Level Complete</h1>
-            <p id="result-desc">Your Abhinaya was exquisite.</p>
-            <h2 id="final-score" style="color:var(--gold); font-size:3rem; margin:20px 0;">0</h2>
-            <button class="btn" onclick="Game.nextLevel()">Next Assignment</button>
+            <div class="guru-avatar"><canvas id="avatar-canvas-teach" width="80" height="80"></canvas></div>
+            <h2 id="teach-title">Title</h2>
+            <p id="teach-text">Lesson text goes here.</p>
+            <button class="btn" id="btn-start-practice">Begin Practice</button>
+        </div>
+    </div>
+
+    <!-- QUIZ SCREEN -->
+    <div id="screen-quiz" class="screen interactive">
+        <div class="panel">
+            <div class="guru-avatar"><canvas id="avatar-canvas-quiz" width="80" height="80"></canvas></div>
+            <h2>Guru's Question</h2>
+            <p id="quiz-question">Question text?</p>
+            <div id="quiz-options"></div>
         </div>
     </div>
 </div>
 
 <script>
-/**
- * PROFESSIONAL BHARATNATYAM GAME ENGINE
- * Uses Tone.js for Generative Audio & GSAP for Animation
- */
-
-// --- 1. CONFIGURATION & STATE ---
-const CONSTANTS = {
-    COLORS: {
-        SARI: ['#D92027', '#FF9F1C', '#2EC4B6', '#5D2E8C'],
-        SKIN: ['#8D5524', '#C68642', '#E0AC69', '#F1C27D'],
-        BG_GRADIENT: ['#1a0b0b', '#000000']
+const CONTENT = [
+    { 
+        id: 'alarippu', title: "Alarippu", sub: "Invocation", seqLen: 3, req: 3, types: ['stand'],
+        teach: "Namaskaram. We begin simply. Stand tall in Samapadam. Watch my movements and repeat them.",
+        quiz: { q: "Which posture do we hold while dancing basic steps?", opts: ["Samapadam (Standing)", "Araimandi (Half-Sit)", "Sayana (Sleeping)"], ans: 1 }
     },
-    KEYS: {
-        'ArrowLeft': { x: -150, color: '#FF3D3D' },
-        'ArrowDown': { x: -50, color: '#3D8EFF' },
-        'ArrowUp':   { x: 50, color: '#3DFF8E' },
-        'ArrowRight':{ x: 150, color: '#FFD93D' }
-    }
-};
-
-const STATE = {
-    sariColor: CONSTANTS.COLORS.SARI[0],
-    level: 0,
-    score: 0,
-    combo: 0,
-    isPlaying: false,
-    inDialog: false
-};
-
-// --- 2. AUDIO ENGINE (Tone.js) ---
-class AudioEngine {
-    constructor() {
-        this.initialized = false;
-        this.synth = null;
-        this.drum = null;
-        this.drone = null;
-        this.bell = null;
-    }
-
-    async init() {
-        if (this.initialized) return;
-        await Tone.start();
-        
-        // 1. Mridangam (Drum) - Synthesized membrane
-        this.drum = new Tone.MembraneSynth({
-            pitchDecay: 0.05,
-            octaves: 4,
-            oscillator: { type: "sine" },
-            envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 }
-        }).toDestination();
-        this.drum.volume.value = -5;
-
-        // 2. Veena (Melody) - Plucked string simulation
-        this.synth = new Tone.PluckSynth({
-            attackNoise: 1,
-            dampening: 4000,
-            resonance: 0.95
-        }).toDestination();
-        this.synth.volume.value = -8;
-
-        // 3. Salangai (Ankle Bells) - High frequency FM
-        this.bell = new Tone.MetalSynth({
-            frequency: 200, envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-            harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5
-        }).toDestination();
-        this.bell.volume.value = -10;
-
-        // 4. Tanpura (Drone)
-        this.drone = new Tone.Oscillator(130.81, "sawtooth4").toDestination();
-        this.drone.volume.value = -25; // Quiet background
-
-        this.initialized = true;
-    }
-
-    startDrone() {
-        if(!this.drone) return;
-        this.drone.start();
-        // LFO for slight modulation (human feel)
-        const lfo = new Tone.LFO(0.1, 129, 132).start();
-        lfo.connect(this.drone.frequency);
-    }
-
-    playHit() {
-        if(!this.bell) return;
-        // Randomize slight pitch for realism
-        this.bell.triggerAttackRelease(3000 + Math.random()*500, "32n");
-    }
-
-    playBeat(time) {
-        if(!this.drum) return;
-        this.drum.triggerAttackRelease("C2", "8n", time);
-    }
-
-    playMelodyNote(note) {
-        if(!this.synth) return;
-        this.synth.triggerAttack(note, Tone.now());
-    }
-}
-
-// --- 3. GRAPHICS ENGINE (Canvas) ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const guruCanvas = document.getElementById('guruCanvas');
-const gCtx = guruCanvas.getContext('2d');
-
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
-
-class Dancer {
-    constructor() {
-        this.y = canvas.height * 0.65;
-        this.scale = 0.8;
-        this.pose = 'neutral'; 
-        this.animVal = 0; // For breathing animation
-        this.targetArmL = { x: -40, y: -20 };
-        this.targetArmR = { x: 40, y: -20 };
-        this.curArmL = { ...this.targetArmL };
-        this.curArmR = { ...this.targetArmR };
-    }
-
-    update(dt) {
-        // Breathing
-        this.animVal += dt * 0.002;
-        
-        // Smooth arm movement (Linear Interpolation)
-        const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
-        this.curArmL.x = lerp(this.curArmL.x, this.targetArmL.x, 0.2);
-        this.curArmL.y = lerp(this.curArmL.y, this.targetArmL.y, 0.2);
-        this.curArmR.x = lerp(this.curArmR.x, this.targetArmR.x, 0.2);
-        this.curArmR.y = lerp(this.curArmR.y, this.targetArmR.y, 0.2);
-    }
-
-    setPose(key) {
-        if (key === 'ArrowLeft') { this.targetArmL = {x:-100, y:-60}; this.targetArmR = {x:60, y:-10}; }
-        else if (key === 'ArrowRight') { this.targetArmL = {x:-60, y:-10}; this.targetArmR = {x:100, y:-60}; }
-        else if (key === 'ArrowUp') { this.targetArmL = {x:-80, y:-90}; this.targetArmR = {x:80, y:-90}; }
-        else if (key === 'ArrowDown') { this.targetArmL = {x:-90, y:40}; this.targetArmR = {x:90, y:40}; }
-        
-        setTimeout(() => {
-            this.targetArmL = { x: -40, y: -20 };
-            this.targetArmR = { x: 40, y: -20 };
-        }, 300);
-    }
-
-    draw() {
-        const cx = canvas.width / 2;
-        const cy = this.y + Math.sin(this.animVal)*5;
-        const s = (canvas.height / 900) * this.scale;
-
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.scale(s, s);
-
-        // -- DRAWING PROCEDURAL AVATAR --
-        
-        // 1. Pleats (Fan)
-        ctx.fillStyle = "#FFF";
-        ctx.beginPath();
-        ctx.moveTo(0, 100);
-        ctx.lineTo(-40, 300);
-        ctx.quadraticCurveTo(0, 320, 40, 300);
-        ctx.fill();
-
-        // 2. Legs (Aramandi Diamond)
-        const grd = ctx.createLinearGradient(-50, 0, 50, 300);
-        grd.addColorStop(0, STATE.sariColor);
-        grd.addColorStop(1, "#220000"); // Shadow
-        ctx.fillStyle = grd;
-        
-        ctx.beginPath();
-        ctx.moveTo(0, 100); // Waist
-        ctx.lineTo(-70, 240); // Knees out
-        ctx.lineTo(-20, 340); // Ankles
-        ctx.lineTo(20, 340);
-        ctx.lineTo(70, 240);
-        ctx.fill();
-
-        // Gold Border on Sari
-        ctx.strokeStyle = var2hex("--gold"); 
-        ctx.lineWidth = 8;
-        ctx.stroke();
-
-        // 3. Torso
-        ctx.fillStyle = STATE.sariColor;
-        ctx.fillRect(-35, -50, 70, 150);
-        // Blouse shading
-        ctx.fillStyle = "rgba(0,0,0,0.1)";
-        ctx.fillRect(-35, 50, 70, 50);
-
-        // 4. Arms (Dynamic)
-        ctx.strokeStyle = "#8D5524"; // Skin
-        ctx.lineWidth = 18;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-
-        ctx.beginPath();
-        ctx.moveTo(-30, -40); // Shoulder L
-        ctx.lineTo(this.curArmL.x, this.curArmL.y);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(30, -40); // Shoulder R
-        ctx.lineTo(this.curArmR.x, this.curArmR.y);
-        ctx.stroke();
-
-        // Bangles
-        ctx.strokeStyle = var2hex("--gold");
-        ctx.lineWidth = 5;
-        ctx.beginPath(); ctx.moveTo(this.curArmL.x, this.curArmL.y); ctx.lineTo(this.curArmL.x+5, this.curArmL.y+5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(this.curArmR.x, this.curArmR.y); ctx.lineTo(this.curArmR.x-5, this.curArmR.y+5); ctx.stroke();
-
-        // 5. Head & Jewelry
-        ctx.fillStyle = "#8D5524";
-        ctx.beginPath(); ctx.arc(0, -80, 35, 0, Math.PI*2); ctx.fill(); // Face
-        
-        // Hair
-        ctx.fillStyle = "#111";
-        ctx.beginPath(); ctx.arc(0, -90, 38, 0, Math.PI*2); ctx.fill(); 
-        
-        // Face Details
-        ctx.fillStyle = "#400"; // Bindi
-        ctx.beginPath(); ctx.arc(0, -85, 4, 0, Math.PI*2); ctx.fill();
-
-        // Crown/Jewelry
-        ctx.fillStyle = var2hex("--gold");
-        ctx.beginPath(); ctx.moveTo(-35, -90); ctx.quadraticCurveTo(0, -60, 35, -90); ctx.stroke();
-        
-        ctx.restore();
-    }
-}
-
-// Helper to get CSS var
-function var2hex(v) {
-    return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-}
-
-// Procedurally draw Guru Face
-function drawGuru() {
-    const cx = 75, cy = 75;
-    gCtx.fillStyle = "#332211"; // BG
-    gCtx.fillRect(0,0,150,150);
-    
-    // Skin
-    gCtx.fillStyle = "#5c3a1e";
-    gCtx.beginPath(); gCtx.arc(cx, cy, 50, 0, Math.PI*2); gCtx.fill();
-    
-    // Hair (Grey bun)
-    gCtx.fillStyle = "#666";
-    gCtx.beginPath(); gCtx.arc(cx, cy-10, 55, Math.PI, 0); gCtx.fill();
-    
-    // Big Bindi
-    gCtx.fillStyle = "#800000";
-    gCtx.beginPath(); gCtx.arc(cx, cy-10, 6, 0, Math.PI*2); gCtx.fill();
-}
-
-// --- 4. GAMEPLAY LOGIC ---
-const STORIES = [
-    {
-        title: "Level 1: The Stance (Aramandi)",
-        text: "In Bharatnatyam, geometry is divine. We begin with Aramandi - the half-seated posture representing the stabilization of the earth. Keep your back straight.",
-        quiz: {
-            q: "What shape does the Aramandi stance create with the legs?",
-            opts: ["A Square", "A Diamond", "A Circle"],
-            ans: 1,
-            reply: "Correct. The diamond represents stability."
-        },
-        bpm: 90,
-        notes: 20
+    { 
+        id: 'jatiswaram', title: "Jatiswaram", sub: "Melody", seqLen: 4, req: 3, types: ['stand', 'squat'],
+        teach: "Now we introduce Araimandi. When you see the BLUE symbol, you must SIT (Mandi) while moving. Use Spacebar or the Button.",
+        quiz: { q: "Jatiswaram emphasizes which aspect?", opts: ["Pure Dance (Nritta)", "Storytelling (Abhinaya)", "Singing"], ans: 0 }
     },
-    {
-        title: "Level 2: The Language of Hands (Mudras)",
-        text: "Your hands speak what your voice cannot. The 'Pataka' (Flag) is the beginning. The 'Tripataka' follows. Precision is key.",
-        quiz: {
-            q: "Which hand gesture (Mudra) denotes a creeper or a bow?",
-            opts: ["Pataka", "Kartarimukha", "Shikhara"],
-            ans: 1,
-            reply: "Yes, Kartarimukha (Scissors face) is used for creepers."
-        },
-        bpm: 110,
-        notes: 40
+    { 
+        id: 'shabdam', title: "Shabdam", sub: "Expression", seqLen: 5, req: 4, types: ['stand', 'squat'],
+        teach: "Shabdam introduces lyrics. Keep your rhythm steady. Remember: Blue means SIT.",
+        quiz: { q: "Where should the eyes go?", opts: ["To the audience", "To the hands", "To the floor"], ans: 1 }
     },
-    {
-        title: "Level 3: The Arangetram",
-        text: "The stage is set. The musicians are ready. Perform the Thillana with joy and devotion. This is your moment.",
-        bpm: 130,
-        notes: 60
+    { 
+        id: 'varnam', title: "Varnam", sub: "Masterpiece", seqLen: 6, req: 4, types: ['stand', 'squat', 'spin'],
+        teach: "Varnam is complex. You can SPIN by pressing 'S'.",
+        quiz: { q: "Rising out of Araimandi is considered...", opts: ["A style choice", "A mistake", "Relaxing"], ans: 1 }
+    },
+    { 
+        id: 'padam', title: "Padam", sub: "Devotion", seqLen: 7, req: 5, types: ['stand', 'squat', 'spin'],
+        teach: "Padams are slow and expressive. Maintain your posture.",
+        quiz: { q: "Padams primarily focus on...", opts: ["Speed", "Emotion (Bhava)", "Jumps"], ans: 1 }
+    },
+    { 
+        id: 'thillana', title: "Thillana", sub: "Finale", seqLen: 8, req: 5, types: ['stand', 'squat', 'spin'],
+        teach: "Thillana! Fast and joyous. Give everything you have.",
+        quiz: { q: "Thillana is performed...", opts: ["First", "In the middle", "Last"], ans: 2 }
     }
 ];
 
-let arrows = [];
-let lastSpawn = 0;
-const audio = new AudioEngine();
-const dancer = new Dancer();
+const STATE = { 
+    mode: 'IDLE',
+    levelIdx: 0, 
+    flowers: 0,
+    currentSequence: [],
+    playerInputIdx: 0,
+    isSquatting: false, 
+    playerName: "Disciple",
+    isInputLocked: false 
+};
 
-// Initialization
-window.onload = () => {
-    drawGuru();
-    
-    // Generate Color Swatches
-    const swatchContainer = document.getElementById('sari-swatches');
-    CONSTANTS.COLORS.SARI.forEach((c, i) => {
-        const div = document.createElement('div');
-        div.className = `swatch ${i===0?'selected':''}`;
-        div.style.backgroundColor = c;
-        div.onclick = () => {
-            document.querySelectorAll('.swatch').forEach(e => e.classList.remove('selected'));
-            div.classList.add('selected');
-            STATE.sariColor = c;
+let dancers = [];
+let particles = [];
+let deepams = [];
+let arrowHistory = [];
+
+class Dancer {
+    constructor(x, z, scale, type) {
+        this.baseX = x; this.baseZ = z; this.scale = scale;
+        this.curX = x; this.curZ = z;
+        this.type = type;
+        this.yOffset = 0; 
+        this.spreadOffset = 0; 
+        this.rotation = 0;
+        
+        this.armL = {x:-45, y:-25}; this.armR = {x:45, y:-25}; 
+        this.head = {rot:0};
+        this.eyes = {x:0, y:0}; 
+        
+        this.anim = Math.random()*10; 
+        this.sariPhase = Math.random()*10;
+        
+        if(type === 'guru') { this.skinColor = '#8D5524'; this.sariColor = '#D92027'; }
+        else if(type === 'player') { this.skinColor = '#C68642'; this.sariColor = '#4B0082'; }
+        else { this.skinColor = '#A0522D'; this.sariColor = '#800000'; }
+    }
+
+    triggerFormation(targetMode) {
+        if (this.type === 'guru') return; 
+
+        let targetZ = this.baseZ;
+        let targetX = this.baseX;
+
+        // WATCHING Mode: Move DOWNSTAGE (Large positive Z) and SPREAD
+        if (targetMode === 'WATCH' || targetMode === 'TEACH' || targetMode === 'IDLE' || targetMode === 'QUIZ') {
+            targetZ = 450; 
+            if (this.type === 'player') {
+                targetX = 350; 
+            } else if (this.baseX < 0) {
+                targetX = -350; 
+            } else {
+                targetX = 600; 
+            }
+            // Ensure they stand up when watching
+            gsap.to(this, {yOffset: -20, spreadOffset: -25, duration: 0.5}); 
+        } else {
+            // REPEAT (Dance) Mode: Return to original formation
+            targetX = this.baseX;
+            targetZ = this.baseZ;
+            // If player is already squatting, animate to squat
+             gsap.to(this, {yOffset: STATE.isSquatting && this.type==='player' ? 45 : 0, spreadOffset: STATE.isSquatting && this.type==='player' ? 25 : 0, duration: 0.5});
+        }
+        
+        gsap.to(this, {curZ: targetZ, curX: targetX, duration: 1.2, ease: "power2.inOut"});
+    }
+
+    spin() {
+        gsap.to(this, {rotation: Math.PI*2, duration: 0.6, ease: "back.out(1.2)", onComplete: () => { this.rotation = 0; }});
+    }
+
+    pose(move) {
+        if (move.key === 'Spin') { this.spin(); return; }
+        if(move.squat) {
+             gsap.to(this, {yOffset: 45, spreadOffset: 25, duration: 0.2});
+        } else if (STATE.mode === 'REPEAT' || this.type !== 'player') {
+             // If standing, ensure we pop up. 
+             // Exception: Player might stay squatting if they toggle it on, handled by loop
+             gsap.to(this, {yOffset: 0, spreadOffset: 0, duration: 0.2});
+        }
+
+        let l={x:-45,y:-25}, r={x:45,y:-25}, h=0, ex=0, ey=0;
+        const k = move.key;
+
+        if(k==='ArrowLeft') ex = -3;
+        if(k==='ArrowRight') ex = 3;
+        if(k==='ArrowUp') ey = -2;
+        if(k==='ArrowDown') ey = 2;
+
+        if (move.squat) {
+            if(k==='ArrowLeft') { l={x:-120,y:-20}; r={x:0,y:0}; h=-0.3; } 
+            else if(k==='ArrowRight'){ l={x:0,y:0}; r={x:120,y:-20}; h=0.3; }
+            else if(k==='ArrowUp') { l={x:-60,y:-140}; r={x:60,y:-140}; h=0; } 
+            else if(k==='ArrowDown') { l={x:-45,y:40}; r={x:45,y:40}; h=0; } 
+        } else {
+            if(k==='ArrowLeft') { l={x:-120,y:-80}; r={x:60,y:-20}; h=-0.2; }
+            else if(k==='ArrowRight'){ l={x:-60,y:-20}; r={x:120,y:-80}; h=0.2; }
+            else if(k==='ArrowUp') { l={x:-90,y:-110}; r={x:90,y:-110}; h=0; }
+            else if(k==='ArrowDown') { l={x:-100,y:40}; r={x:100,y:40}; h=0; }
+        }
+        
+        gsap.to(this.armL, {x:l.x, y:l.y, duration:0.4});
+        gsap.to(this.armR, {x:r.x, y:r.y, duration:0.4});
+        gsap.to(this.head, {rot:h, duration:0.4});
+        gsap.to(this.eyes, {x:ex, y:ey, duration:0.2});
+        
+        setTimeout(()=>{
+            gsap.to(this.armL, {x:-45, y:-25, duration:0.6});
+            gsap.to(this.armR, {x:45, y:-25, duration:0.6});
+            gsap.to(this.head, {rot:0, duration:0.6});
+            gsap.to(this.eyes, {x:0, y:0, duration:0.4});
+        }, 800);
+    }
+
+    draw(ctx, cx, cyBase) {
+        this.anim += 0.05; this.sariPhase += 0.1;
+        const breathe = Math.sin(this.anim)*2;
+        const depthScale = this.scale * (1 + (this.curZ * 0.002)); 
+        const yPos = cyBase + (this.curZ * 0.9) + this.yOffset; 
+        
+        ctx.save();
+        ctx.translate(cx + this.curX * depthScale, yPos + breathe); 
+        ctx.scale(depthScale, depthScale);
+        if (this.rotation > 0) ctx.scale(Math.cos(this.rotation), 1);
+
+        if (STATE.mode === 'WATCH') {
+            if (this.type === 'guru') ctx.globalAlpha = 1.0; else ctx.globalAlpha = 0.5; 
+        } else {
+            if (this.type === 'npc') ctx.globalAlpha = 0.8; else ctx.globalAlpha = 1.0;
+        }
+
+        const mainColor = this.sariColor;
+        const skinColor = this.skinColor;
+        const gold = "#FFD700";
+
+        const currentSpread = 25 + this.spreadOffset; 
+        const kneeY = 180 + (this.yOffset * 0.4); 
+        const ankleY = 280;
+        const innerGap = this.spreadOffset > 10 ? 10 : 0;
+
+        ctx.fillStyle = mainColor;
+
+        // 1. LEGS
+        ctx.beginPath(); ctx.moveTo(-35 - innerGap, 75); ctx.lineTo(-10 - innerGap, 75); ctx.lineTo(-15, ankleY); 
+        ctx.lineTo(-25 - currentSpread, kneeY); ctx.lineTo(-45 - innerGap, ankleY); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = gold; ctx.fillRect(-45 - innerGap, ankleY-10, 30, 10);
+
+        ctx.fillStyle = mainColor;
+        ctx.beginPath(); ctx.moveTo(35 + innerGap, 75); ctx.lineTo(10 + innerGap, 75); ctx.lineTo(15, ankleY); 
+        ctx.lineTo(25 + currentSpread, kneeY); ctx.lineTo(45 + innerGap, ankleY); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = gold; ctx.fillRect(15 + innerGap, ankleY-10, 30, 10);
+
+        // 2. CENTRAL FAN
+        const fanHeight = 160 + this.yOffset*0.3; 
+        const fanWidthBase = 40;
+        const fanWidthSpread = fanWidthBase + currentSpread*1.5; 
+        
+        const fanGrad = ctx.createLinearGradient(0, 75, 0, 75+fanHeight);
+        fanGrad.addColorStop(0, mainColor);
+        fanGrad.addColorStop(1, "#8B0000"); 
+        
+        ctx.fillStyle = fanGrad;
+        ctx.beginPath();
+        ctx.moveTo(-15, 75); 
+        ctx.lineTo(15, 75); 
+        ctx.quadraticCurveTo(fanWidthSpread, 75 + fanHeight/2, fanWidthSpread, 75 + fanHeight); 
+        ctx.lineTo(-fanWidthSpread, 75 + fanHeight); 
+        ctx.quadraticCurveTo(-fanWidthSpread, 75 + fanHeight/2, -15, 75); 
+        ctx.fill();
+
+        ctx.fillStyle = gold;
+        ctx.fillRect(-fanWidthSpread, 75 + fanHeight - 15, fanWidthSpread*2, 15);
+        
+        ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, 75); ctx.lineTo(0, 75+fanHeight); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-5, 75); ctx.lineTo(-15, 75+fanHeight); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(5, 75); ctx.lineTo(15, 75+fanHeight); ctx.stroke();
+
+        // 3. TORSO
+        ctx.fillStyle = mainColor; ctx.fillRect(-35, -50, 70, 125);
+        
+        ctx.fillStyle = "rgba(0,0,0,0.15)";
+        ctx.beginPath(); ctx.moveTo(-35, 70); ctx.lineTo(35, -50); ctx.lineTo(20, -50); ctx.lineTo(-35, 50); ctx.fill();
+        
+        ctx.fillStyle = gold; ctx.fillRect(-36, 68, 72, 12);
+        ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(0, 74, 4, 0, Math.PI*2); ctx.fill();
+
+        ctx.strokeStyle = gold; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, -50, 20, 0, Math.PI, false); ctx.stroke();
+
+        // Limbs
+        const limb = (x1,y1,x2,y2) => {
+            ctx.lineCap="round"; ctx.strokeStyle = skinColor; ctx.lineWidth=16;
+            ctx.beginPath(); ctx.moveTo(x1,y1); ctx.quadraticCurveTo((x1+x2)/2, (y1+y2)/2, x2, y2); ctx.stroke();
+            ctx.strokeStyle=gold; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-(x2-x1)*0.1, y2-(y2-y1)*0.1); ctx.stroke();
         };
-        swatchContainer.appendChild(div);
-    });
+        limb(-35, -45, this.armL.x, this.armL.y);
+        limb(35, -45, this.armR.x, this.armR.y);
 
-    document.getElementById('loader').style.opacity = 0;
-    setTimeout(() => document.getElementById('loader').remove(), 1000);
-    
-    // Setup Start
-    document.getElementById('start-btn').onclick = async () => {
-        await audio.init();
-        audio.startDrone();
-        document.getElementById('screen-menu').classList.remove('active');
-        startLevel(0);
-    };
-};
-
-function startLevel(lvl) {
-    STATE.level = lvl;
-    STATE.score = 0;
-    STATE.combo = 0;
-    document.getElementById('level-el').innerText = STORIES[lvl].title;
-    document.getElementById('score-el').innerText = "Score: 0";
-    
-    // Show Guru
-    showDialog(STORIES[lvl]);
-}
-
-function showDialog(data) {
-    STATE.inDialog = true;
-    const overlay = document.getElementById('guru-overlay');
-    const txt = document.getElementById('guru-text');
-    const quizBox = document.getElementById('quiz-container');
-    const nextBtn = document.getElementById('dialog-next');
-
-    // Slide up animation
-    gsap.to(overlay, { y: 0, duration: 0.8, ease: "power2.out" });
-    
-    txt.innerText = data.text;
-    quizBox.style.display = 'none';
-    nextBtn.style.display = 'inline-block';
-    nextBtn.onclick = () => {
-        if(data.quiz && !data.quizTaken) {
-            // Show Quiz
-            data.quizTaken = true; // prevent loop
-            txt.innerText = data.quiz.q;
-            nextBtn.style.display = 'none';
-            quizBox.style.display = 'flex';
-            quizBox.innerHTML = '';
-            quizBox.style.gap = '10px';
-            
-            data.quiz.opts.forEach((opt, i) => {
-                const b = document.createElement('button');
-                b.className = 'btn';
-                b.style.fontSize = '0.7rem'; b.style.padding = '10px'; b.style.marginTop = '0';
-                b.innerText = opt;
-                b.onclick = () => {
-                    if(i === data.quiz.ans) {
-                        txt.innerText = data.quiz.reply;
-                        audio.playMelodyNote("C5"); // Success chime
-                        setTimeout(enterGameplay, 2000);
-                    } else {
-                        txt.innerText = "Focus, shishya. Try again.";
-                        audio.playMelodyNote("C3"); // Fail sound
-                    }
-                };
-                quizBox.appendChild(b);
-            });
-        } else {
-            enterGameplay();
-        }
-    };
-}
-
-function enterGameplay() {
-    gsap.to('#guru-overlay', { y: "120%", duration: 0.5 });
-    STATE.inDialog = false;
-    STATE.isPlaying = true;
-    
-    // Start Music Loop with Tone.js Transport
-    const bpm = STORIES[STATE.level].bpm;
-    Tone.Transport.bpm.value = bpm;
-    
-    // Schedule beat
-    Tone.Transport.scheduleRepeat((time) => {
-        if(!STATE.isPlaying) return;
-        audio.playBeat(time);
-        spawnArrow();
-    }, "4n"); // Quarter note
-
-    Tone.Transport.start();
-}
-
-function spawnArrow() {
-    const keys = Object.keys(CONSTANTS.KEYS);
-    const k = keys[Math.floor(Math.random()*keys.length)];
-    const def = CONSTANTS.KEYS[k];
-    
-    arrows.push({
-        key: k, x: (canvas.width/2) + def.x, y: -50, 
-        color: def.color, active: true
-    });
-}
-
-// Input Handling
-window.addEventListener('keydown', (e) => {
-    if(!STATE.isPlaying) return;
-    if(CONSTANTS.KEYS[e.code]) {
-        dancer.setPose(e.code);
+        // Head
+        ctx.rotate(this.head.rot);
+        ctx.fillStyle = skinColor; ctx.beginPath(); ctx.arc(0, -90, 32, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(0, -100, 34, Math.PI, 0); ctx.fill(); 
+        ctx.fillStyle = "#FFF"; ctx.beginPath(); ctx.arc(-30, -95, 8, 0, Math.PI*2); ctx.fill();
         
-        // Hit detection
-        const targetY = canvas.height - 100;
-        const hit = arrows.find(a => a.active && a.key === e.code && Math.abs(a.y - targetY) < 80);
-        
-        if(hit) {
-            hit.active = false;
-            STATE.score += 100 + (STATE.combo * 10);
-            STATE.combo++;
-            audio.playHit();
-            
-            // Visual Popup
-            const pop = document.getElementById('combo-popup');
-            pop.innerText = ["Good!", "Perfect!", "Divine!"][Math.min(2, Math.floor(STATE.combo/5))];
-            gsap.fromTo(pop, {opacity:1, scale:0.5}, {opacity:0, scale:1.5, duration:0.5});
-            
-            document.getElementById('score-el').innerText = "Score: " + STATE.score;
-        } else {
-            STATE.combo = 0;
+        ctx.fillStyle = gold; 
+        ctx.beginPath(); ctx.arc(0, -85, 3, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = "red"; ctx.beginPath(); ctx.arc(0, -85, 2, 0, Math.PI*2); ctx.fill(); 
+        ctx.fillStyle = gold;
+        ctx.beginPath(); ctx.moveTo(-30, -80); ctx.lineTo(-35, -70); ctx.lineTo(-25, -70); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(30, -80); ctx.lineTo(25, -70); ctx.lineTo(35, -70); ctx.fill();
+
+        if (this.type !== 'npc') {
+            ctx.translate(this.eyes.x, this.eyes.y); 
+            ctx.fillStyle="#FFF"; ctx.beginPath(); ctx.ellipse(-12,-95,6,3.5,0,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(12,-95,6,3.5,0,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle="#000"; ctx.beginPath(); ctx.arc(-12,-95,2.5,0,Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(12,-95,2.5,0,Math.PI*2); ctx.fill();
+            ctx.translate(-this.eyes.x, -this.eyes.y);
         }
+        ctx.restore(); ctx.globalAlpha = 1.0;
     }
-});
+}
 
-// Game Loop
 const Game = {
-    nextLevel: function() {
-        document.getElementById('screen-result').classList.remove('active');
-        if(STATE.level + 1 < STORIES.length) {
-            startLevel(STATE.level + 1);
+    init: () => {
+        const nameInput = document.getElementById('inp-player-name').value;
+        if(nameInput.trim() !== "") STATE.playerName = nameInput;
+        player = new Dancer(0, 50, 1.2, 'player'); 
+        const guru = new Dancer(0, -100, 1.0, 'guru');
+        const npc1 = new Dancer(-300, 50, 0.9, 'npc');
+        const npc2 = new Dancer(300, 50, 0.9, 'npc');
+        dancers = [guru, npc1, npc2, player];
+        deepams = [{x: window.innerWidth * 0.15, y: window.innerHeight * 0.8}, {x: window.innerWidth * 0.85, y: window.innerHeight * 0.8}];
+        Audio.init();
+        document.getElementById('screen-start').classList.remove('active');
+        Game.startTeaching(0);
+    },
+    updateFormation: (newMode) => {
+        dancers.forEach(d => d.triggerFormation(newMode));
+    },
+    startTeaching: (idx) => {
+        STATE.levelIdx = idx;
+        const lvl = CONTENT[idx];
+        document.getElementById('chapter-title').innerText = `Dance ${idx+1}: ${lvl.title}`;
+        document.getElementById('turn-indicator').className = ''; 
+        document.getElementById('teach-title').innerText = lvl.title;
+        document.getElementById('teach-text').innerText = lvl.teach;
+        document.getElementById('screen-teach').classList.add('active');
+        drawAvatar('avatar-canvas-teach');
+        
+        STATE.mode = 'TEACH';
+        Game.updateFormation('TEACH'); 
+    },
+    startPractice: () => {
+        document.getElementById('screen-teach').classList.remove('active');
+        STATE.flowers = 0; Game.updateCounter(); Game.startRound();
+    },
+    startRound: () => {
+        STATE.isInputLocked = true; 
+        const lvl = CONTENT[STATE.levelIdx];
+        const arrows = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+        const seq = [];
+        for(let i=0; i < lvl.seqLen; i++) {
+            let moveType = 'stand';
+            if (lvl.types.includes('squat') && Math.random() > 0.6) moveType = 'squat';
+            if (lvl.types.includes('spin') && Math.random() > 0.85) moveType = 'spin';
+            
+            // Generate sequence
+            if (moveType === 'spin') {
+                seq.push({ key: 'Spin', squat: false });
+            } else {
+                seq.push({ key: arrows[Math.floor(Math.random() * arrows.length)], squat: (moveType === 'squat')});
+            }
+        }
+        STATE.currentSequence = seq; STATE.playerInputIdx = 0; 
+        const bar = document.getElementById('sequence-bar');
+        bar.innerHTML = ''; bar.style.opacity = 1;
+        
+        seq.forEach(m => {
+            const n = document.createElement('div'); n.className = 'seq-node';
+            // VISUAL FEEDBACK: If squat, use Blue. If stand, White.
+            if(m.squat) n.classList.add('squat-mode'); 
+            n.innerHTML = '?'; 
+            bar.appendChild(n);
+        });
+        
+        STATE.mode = 'WATCH';
+        Game.setTurn("Guru Meenakshi"); 
+        Game.updateFormation('WATCH'); 
+        Game.playSequence(0);
+    },
+    setTurn: (name) => {
+        const el = document.getElementById('turn-indicator');
+        el.innerText = `${name} is active...`; 
+        el.className = 'active'; 
+        el.classList.remove('error');
+        if(name !== "Guru Meenakshi") el.classList.add('player-turn');
+    },
+    setError: (msg) => {
+        const el = document.getElementById('turn-indicator');
+        el.innerText = msg;
+        el.classList.add('error');
+    },
+    playSequence: (idx) => {
+        if (idx >= STATE.currentSequence.length) {
+            setTimeout(() => { 
+                STATE.mode = 'REPEAT'; 
+                STATE.isInputLocked = false; 
+                STATE.playerInputIdx = 0; 
+                Game.setTurn(STATE.playerName + " (Your Turn)"); 
+                Game.updateFormation('REPEAT'); 
+                document.querySelectorAll('.seq-node')[0].classList.add('active');
+                Audio.playNote('Spin'); 
+            }, 1000);
+            return;
+        }
+        const move = STATE.currentSequence[idx];
+        dancers[0].pose(move); Audio.playNote(move.key);
+        const nodes = document.querySelectorAll('.seq-node');
+        if(nodes[idx]) {
+            nodes[idx].innerHTML = Game.getIcon(move); nodes[idx].classList.add('active');
+            setTimeout(() => { nodes[idx].classList.remove('active'); nodes[idx].innerHTML = '?'; }, 800);
+        }
+        setTimeout(() => Game.playSequence(idx + 1), 1200);
+    },
+    handleInput: (key) => {
+        if (STATE.mode !== 'REPEAT' || STATE.isInputLocked) return; 
+        if (key !== 'Spin' && key !== 'Space') {
+            arrowHistory.push(key); if(arrowHistory.length > 4) arrowHistory.shift();
+            if(new Set(arrowHistory).size === 4) { arrowHistory = []; Game.commitMove({ key: 'Spin', squat: false }); return; }
+        }
+        if (key === 'Spin') Game.commitMove({ key: 'Spin', squat: false });
+        else Game.commitMove({ key: key, squat: STATE.isSquatting });
+    },
+    commitMove: (playerMove) => {
+        if (STATE.playerInputIdx >= STATE.currentSequence.length) return;
+        const expected = STATE.currentSequence[STATE.playerInputIdx];
+        
+        // Relaxed Spin Rule: Spins count even if you are squatting accidentally
+        let isCorrect = false;
+        if (playerMove.key === 'Spin' && expected.key === 'Spin') isCorrect = true;
+        else if (playerMove.key === expected.key && playerMove.squat === expected.squat) isCorrect = true;
+
+        player.pose(playerMove); 
+        setTimeout(() => { dancers[1].pose(playerMove); dancers[2].pose(playerMove); }, 200); 
+        Audio.playNote(playerMove.key);
+        
+        const nodes = document.querySelectorAll('.seq-node'); 
+        const currentNode = nodes[STATE.playerInputIdx];
+        
+        if (isCorrect) {
+            currentNode.innerHTML = Game.getIcon(playerMove); currentNode.classList.remove('active'); currentNode.classList.add('success');
+            STATE.playerInputIdx++; 
+            if(STATE.playerInputIdx < nodes.length) { nodes[STATE.playerInputIdx].classList.add('active'); } 
+            else { STATE.isInputLocked = true; Game.success(); }
         } else {
-            alert("Arangetram Complete! You are now a master.");
-            location.reload();
+            STATE.isInputLocked = true; currentNode.classList.add('fail'); 
+            // Better Error Messaging
+            if (playerMove.key !== expected.key) Game.setError("Wrong Step!");
+            else if (expected.squat && !playerMove.squat) Game.setError("Too High! SIT!");
+            else if (!expected.squat && playerMove.squat) Game.setError("Stand Up!");
+            
+            Game.fail();
+        }
+    },
+    success: () => {
+        STATE.flowers++; Game.updateCounter(); particles.push({x: window.innerWidth/2, y: window.innerHeight - 100, life: 1, type: 'lotus'}); Audio.playChord('major');
+        setTimeout(() => {
+            const lvl = CONTENT[STATE.levelIdx];
+            if (STATE.flowers >= lvl.req) Game.startQuiz(); else Game.startRound();
+        }, 2000);
+    },
+    fail: () => {
+        Audio.playChord('dim'); if (STATE.flowers > 0) { STATE.flowers = 0; Game.updateCounter(); } setTimeout(Game.startRound, 2000);
+    },
+    startQuiz: () => {
+        STATE.mode = 'QUIZ';
+        Game.updateFormation('QUIZ'); 
+        const lvl = CONTENT[STATE.levelIdx]; const q = lvl.quiz;
+        document.getElementById('quiz-question').innerText = q.q; const optsDiv = document.getElementById('quiz-options'); optsDiv.innerHTML = '';
+        q.opts.forEach((opt, i) => {
+            const btn = document.createElement('button'); btn.className = 'quiz-opt'; btn.innerText = opt;
+            btn.onclick = () => {
+                if (i === q.ans) {
+                    document.getElementById('screen-quiz').classList.remove('active');
+                    if (STATE.levelIdx + 1 < CONTENT.length) Game.startTeaching(STATE.levelIdx + 1); else alert("Arangetram Complete!");
+                } else { btn.style.borderColor = 'red'; btn.style.color = 'red'; }
+            }; optsDiv.appendChild(btn);
+        });
+        document.getElementById('screen-quiz').classList.add('active'); drawAvatar('avatar-canvas-quiz');
+    },
+    updateCounter: () => { const lvl = CONTENT[STATE.levelIdx]; document.getElementById('flower-count').innerText = `${STATE.flowers} / ${lvl.req}`; },
+    getIcon: (move) => { if(move.key === 'Spin') return '↺'; if(move.key==='ArrowUp') return '▲'; if(move.key==='ArrowDown') return '▼'; if(move.key==='ArrowLeft') return '◀'; return '▶'; },
+    
+    // Improved Toggle Logic
+    toggleSquat: (forceState) => {
+        // If forceState is provided (from keyboard events), use it.
+        // If not (from click/tap), toggle it.
+        if (forceState !== undefined) STATE.isSquatting = forceState; 
+        else STATE.isSquatting = !STATE.isSquatting;
+
+        // Visual Feedback for Player Character immediately
+        player.pose({key: '', squat: STATE.isSquatting}); 
+
+        // Update Button Visuals
+        const btn = document.getElementById('btn-squat'); 
+        if(STATE.isSquatting) {
+            btn.classList.add('active');
+            btn.innerText = "MANDI (ON)";
+        } else {
+            btn.classList.remove('active');
+            btn.innerText = "MANDI (Sit)";
         }
     }
 };
 
-function loop(time) {
-    // 1. Clear & Background
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0,0, canvas.width, canvas.height);
+const Audio = {
+    synth: null,
+    init: async () => { await Tone.start(); Audio.synth = new Tone.PolySynth(Tone.Synth).toDestination(); Audio.synth.volume.value = -6; },
+    playNote: (key) => { if(!Audio.synth) return; let n = "C4"; if(key==='ArrowLeft') n="D4"; if(key==='ArrowRight') n="E4"; if(key==='ArrowUp') n="G4"; if(key==='ArrowDown') n="A3"; if(key==='Spin') n="C5"; Audio.synth.triggerAttackRelease(n, "8n"); },
+    playChord: (type) => { if(!Audio.synth) return; if(type==='major') Audio.synth.triggerAttackRelease(["C4","E4","G4"], "4n"); else Audio.synth.triggerAttackRelease(["C3","Eb3","Gb3"], "4n"); }
+};
+
+function drawAvatar(canvasId) {
+    const c = document.getElementById(canvasId); const cx = c.getContext('2d'); cx.clearRect(0,0,80,80);
+    const g = cx.createRadialGradient(40,40,20,40,40,40); g.addColorStop(0,"#e0c0a0"); g.addColorStop(1,"#8D5524");
+    cx.fillStyle = g; cx.fillRect(0,0,80,80); cx.fillStyle = "#111"; cx.beginPath(); cx.arc(40,35,30,Math.PI,0); cx.fill(); cx.fillStyle = "#A00"; cx.beginPath(); cx.arc(40,30,4,0,Math.PI*2); cx.fill(); cx.fillStyle = "#FFF"; cx.beginPath(); cx.ellipse(30,45,5,3,0,0,Math.PI*2); cx.ellipse(50,45,5,3,0,0,Math.PI*2); cx.fill(); cx.fillStyle = "#000"; cx.beginPath(); cx.arc(30,45,2,0,Math.PI*2); cx.arc(50,45,2,0,Math.PI*2); cx.fill(); cx.strokeStyle = "#5a2d1d"; cx.beginPath(); cx.arc(40,55,5,0,Math.PI); cx.stroke();
+}
+
+const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; if(deepams.length) { deepams[0].x = canvas.width * 0.15; deepams[0].y = canvas.height * 0.75; deepams[1].x = canvas.width * 0.85; deepams[1].y = canvas.height * 0.75; } }
+window.addEventListener('resize', resize); resize();
+
+function draw() {
+    const w = canvas.width, h = canvas.height;
+    // Day Sky
+    const bg = ctx.createLinearGradient(0,0,0,h); bg.addColorStop(0, "#87CEEB"); bg.addColorStop(1, "#E0F7FA"); ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
     
-    // Dynamic Spotlight Background
-    const spotX = canvas.width/2 + Math.sin(time/1000)*50;
-    const grd = ctx.createRadialGradient(spotX, canvas.height/2, 50, canvas.width/2, canvas.height/2, 800);
-    grd.addColorStop(0, "#2a1515");
-    grd.addColorStop(1, "#000");
-    ctx.fillStyle = grd;
-    ctx.fillRect(0,0, canvas.width, canvas.height);
+    // Sun
+    const sunGrad = ctx.createRadialGradient(w*0.8, h*0.1, 10, w*0.8, h*0.1, 100); sunGrad.addColorStop(0, "rgba(255,255,224, 0.9)"); sunGrad.addColorStop(1, "rgba(255,255,224, 0)");
+    ctx.fillStyle = sunGrad; ctx.fillRect(0,0,w,h);
+
+    // DRAW NATARAJA MURTI (MARBLE STATUE)
+    ctx.save();
+    ctx.translate(w/2, h*0.4); 
+    const scaleFactor = Math.min(w, h) * 0.0014; 
+    ctx.scale(scaleFactor, scaleFactor);
+
+    // MARBLE Palette
+    const MARBLE_BASE = "#F5F5F5"; 
+    const MARBLE_SHADE = "#D3D3D3"; 
+    const MARBLE_DARK = "#778899"; 
+    const MARBLE_ACCENT = "#C0C0C0"; 
+    
+    ctx.strokeStyle = MARBLE_SHADE;
+    ctx.fillStyle = MARBLE_BASE;
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+    // 1. Ring of Fire
+    ctx.beginPath(); ctx.arc(0, 0, 160, 0, Math.PI*2); 
+    ctx.lineWidth = 15; ctx.strokeStyle = MARBLE_BASE; ctx.stroke();
+    // Shadow outline
+    ctx.lineWidth = 1; ctx.strokeStyle = MARBLE_SHADE; ctx.stroke();
+    
+    // Flames
+    for(let i=0; i<30; i++) {
+        const ang = (i/30) * Math.PI*2;
+        const fx = Math.cos(ang)*160; const fy = Math.sin(ang)*160;
+        ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx*1.15, fy*1.15); 
+        ctx.lineWidth=5; ctx.strokeStyle=MARBLE_SHADE; ctx.stroke();
+    }
+
+    // 2. Lord Shiva
+    // Legs
+    ctx.strokeStyle = MARBLE_BASE; ctx.lineWidth = 20;
+    // Shadow layer
+    ctx.save(); ctx.translate(2,2); ctx.strokeStyle = MARBLE_SHADE;
+    ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 80); ctx.lineTo(20, 130); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10, 20); ctx.lineTo(-40, 40); ctx.lineTo(60, -10); ctx.stroke();
+    ctx.restore();
+    
+    // Main White Legs
+    ctx.beginPath(); ctx.moveTo(10, 20); ctx.lineTo(20, 80); ctx.lineTo(20, 130); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-10, 20); ctx.lineTo(-40, 40); ctx.lineTo(60, -10); ctx.stroke();
+
+    // Body Block
+    ctx.fillStyle = MARBLE_BASE;
+    ctx.beginPath(); ctx.moveTo(-25, -60); ctx.lineTo(25, -60); ctx.lineTo(15, 20); ctx.lineTo(-15, 20); ctx.fill();
+
+    // Arms
+    ctx.lineWidth = 14; ctx.strokeStyle = MARBLE_BASE;
+    ctx.beginPath(); ctx.moveTo(20, -50); ctx.lineTo(70, -80); ctx.lineTo(90, -90); ctx.stroke();
+    ctx.fillStyle = MARBLE_ACCENT; ctx.beginPath(); ctx.arc(95, -95, 8, 0, Math.PI*2); ctx.fill(); // Drum
+    
+    ctx.beginPath(); ctx.moveTo(-20, -50); ctx.lineTo(-70, -80); ctx.lineTo(-90, -90); ctx.stroke();
+    ctx.fillStyle = MARBLE_ACCENT; ctx.beginPath(); ctx.moveTo(-90, -90); ctx.lineTo(-95, -110); ctx.lineTo(-85, -110); ctx.fill(); // Fire
+
+    ctx.beginPath(); ctx.moveTo(20, -50); ctx.lineTo(50, -30); ctx.lineTo(50, -60); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-20, -50); ctx.lineTo(-30, -30); ctx.lineTo(50, 20); ctx.stroke();
+
+    // Head
+    ctx.fillStyle = MARBLE_BASE; ctx.beginPath(); ctx.arc(0, -70, 18, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = MARBLE_DARK; ctx.beginPath(); ctx.arc(0, -80, 10, Math.PI, 0); ctx.fill(); 
+
+    // Flying Jata
+    ctx.strokeStyle = MARBLE_DARK; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-18, -70); ctx.lineTo(-150, -60); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(18, -70); ctx.lineTo(150, -60); ctx.stroke();
+
+    // 3. Dwarf Apasmara
+    ctx.fillStyle = MARBLE_DARK; 
+    ctx.beginPath(); ctx.ellipse(20, 140, 30, 12, 0, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
 
     // Floor
-    ctx.fillStyle = "#1a1111";
-    ctx.beginPath(); ctx.ellipse(canvas.width/2, canvas.height, canvas.width/1.2, 150, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "rgba(240, 230, 210, 0.9)"; ctx.fillRect(w*0.1, 0, 80, h); ctx.fillRect(w*0.85, 0, 80, h);
+    ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(w, h); ctx.lineTo(w*0.9, h*0.6); ctx.lineTo(w*0.1, h*0.6); ctx.fillStyle = "rgba(160, 82, 45, 0.6)"; ctx.fill();
 
-    if(!STATE.inDialog) {
-        dancer.update(16); // assume 60fps delta roughly
-        dancer.draw();
-    }
+    // Deepams
+    deepams.forEach(d => {
+        ctx.fillStyle = "#B8860B"; ctx.fillRect(d.x - 5, d.y, 10, 60);
+        ctx.beginPath(); ctx.ellipse(d.x, d.y+60, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(d.x, d.y, 15, 0, Math.PI, false); ctx.fill();
+        const flicker = Math.random() * 3; ctx.fillStyle = `rgba(255, 140, 0, 0.6)`; ctx.beginPath(); ctx.ellipse(d.x, d.y - 15, 6 + flicker, 15 + flicker, 0, 0, Math.PI*2); ctx.fill();
+    });
 
-    if(STATE.isPlaying) {
-        // Draw HUD Lines
-        const ty = canvas.height - 100;
-        ctx.strokeStyle = "rgba(212, 175, 55, 0.3)";
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(canvas.width, ty); ctx.stroke();
-
-        // Draw Arrows
-        arrows.forEach(a => {
-            if(!a.active) return;
-            a.y += 6; // Speed
-            
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = a.color;
-            ctx.fillStyle = a.color;
-            
-            // Draw stylized arrow
-            ctx.beginPath();
-            ctx.arc(a.x, a.y, 20, 0, Math.PI*2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-        });
-
-        // Cleanup
-        arrows = arrows.filter(a => a.y < canvas.height + 50 && a.active);
-
-        // Win Condition
-        if(STATE.score > STORIES[STATE.level].notes * 80) {
-            STATE.isPlaying = false;
-            Tone.Transport.stop();
-            document.getElementById('screen-result').classList.add('active');
-            document.getElementById('final-score').innerText = STATE.score;
-            arrows = [];
-        }
-    }
-
-    requestAnimationFrame(loop);
+    const sorted = [...dancers].sort((a,b) => a.curZ - b.curZ); sorted.forEach(d => d.draw(ctx, w/2, h*0.6));
+    particles.forEach((p, i) => {
+        p.life -= 0.01; p.y -= 1; ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = p.life;
+        ctx.fillStyle = "#ff69b4"; for(let k=0; k<6; k++) { ctx.rotate(Math.PI/3); ctx.beginPath(); ctx.ellipse(0, 15, 8, 15, 0, 0, Math.PI*2); ctx.fill(); }
+        ctx.fillStyle = "#FFD700"; ctx.beginPath(); ctx.arc(0,0,8,0,Math.PI*2); ctx.fill(); ctx.restore(); if(p.life <= 0) particles.splice(i, 1);
+    });
+    requestAnimationFrame(draw);
 }
 
-requestAnimationFrame(loop);
-
+document.getElementById('btn-enter-temple').onclick = Game.init; document.getElementById('btn-start-practice').onclick = Game.startPractice;
+['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].forEach(k => { document.querySelector(`[data-key="${k}"]`).addEventListener('mousedown', (e) => { e.preventDefault(); Game.handleInput(k); }); });
+document.querySelector('[data-key="KeyS"]').addEventListener('mousedown', (e) => { e.preventDefault(); Game.handleInput('Spin'); });
+const sqBtn = document.getElementById('btn-squat'); sqBtn.addEventListener('mousedown', (e) => { e.preventDefault(); Game.toggleSquat(); }); 
+// Removed touchstart duplicate event to prevent double-toggle on some devices, mousedown handles it well usually, or pointer events.
+document.addEventListener('keydown', e => { if(e.repeat) return; if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) Game.handleInput(e.key); if(e.code === 'Space') Game.toggleSquat(true); if(e.code === 'KeyS') Game.handleInput('Spin'); });
+document.addEventListener('keyup', e => { if(e.code === 'Space') Game.toggleSquat(false); });
+draw();
 </script>
 </body>
 </html>
